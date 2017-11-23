@@ -1,5 +1,5 @@
 ---
-title: "Native Plants"
+title: "Native Plants Analysis"
 output: html_notebook
 ---
 
@@ -49,8 +49,13 @@ nPC$axes %>%
 ```{r}
 phyla_abund <- nExp %>% 
   inner_join(tax, by = "variable") %>% 
-  group_by(SampleID, Compartment, host_common_name, Phylum2) %>% 
-  summarise(phy_total = sum(RA * 1000))
+  group_by(SampleID, Compartment, host_common_name, Phylum2, depth) %>% 
+  summarise(phy_total = sum(value)) %>% 
+  mutate(prop = (phy_total + 1) / (depth + 1)) %>% 
+  group_by(Compartment) %>% 
+  mutate(alpha = fitdistr(prop, dbeta, start = list(shape1 = 1, shape2 = 10))$estimate[1],
+         beta = fitdistr(prop, dbeta, start = list(shape1 = 1, shape2 = 10))$estimate[2]) %>% 
+  mutate(emp_estimate = (phy_total + alpha + 1) / (depth + 1 + alpha + beta))
 
 phy_host_lm <- phyla_abund %>% 
   group_by(Compartment, Phylum2) %>% 
@@ -65,9 +70,9 @@ phy_host_lm <- phyla_abund %>%
   mutate(p.adj = p.adjust(p.value, "fdr"))
 
 phy_comp_lm <- phyla_abund %>% 
-  group_by(Phylum2, host_common_name) %>% 
+  group_by(Phylum2) %>% 
   nest() %>% 
-  mutate(models = map(data, ~tidy(lm(log2(phy_total + 1) ~ Compartment, .)))) %>% 
+  mutate(models = map(data, ~tidy(lm(log2(emp_estimate) ~ Compartment, .)))) %>% 
   unnest(models) %>% 
   filter(term != "(Intercept)") %>% 
   mutate(term = gsub("Compartment", "", term)) %>% 
@@ -81,11 +86,14 @@ phy_comp_lm %>%
   facet_grid(. ~ term)
 
 phy_comp_lm %>% 
-  mutate(term = fct_relevel(term, "Rhizosphere", "Endosphere")) %>% 
-  ggplot(aes(term, estimate, group = Phylum2, color = ifelse(p.adj <= 0.05, term, "ns"), shape = ifelse(p.adj <= 0.05, "sig", "ns"))) +
-  geom_line(color = 'black', alpha = 0.5) +
-  geom_point(size = 3) +
+  inner_join(phyla_abund %>% group_by(Phylum2, Compartment) %>% summarise(mean_ab = mean(emp_estimate)), by = c(c("term" = "Compartment"), "Phylum2")) %>% 
+  mutate(Compartment = fct_relevel(term, "Rhizosphere", "Endosphere")) %>%
+  ggplot(aes(Compartment, estimate, group = Phylum2, color = ifelse(p.adj <= 0.05, Compartment, "ns"), shape = ifelse(p.adj <= 0.05, "sig", "ns"), size = log2(mean_ab * 1000))) +
+  geom_line(color = 'black', alpha = 0.5, size = 0.5) +
+  geom_point(alpha = 0.5) +
   scale_shape_manual(values = c(1, 16)) +
+  scale_color_manual(values = c("darkmagenta", "steelblue", "black")) +
+  scale_size_continuous(range = c(0,10)) +
   theme_minimal()
 
 phy_host_lm %>% 
@@ -97,7 +105,14 @@ phy_host_lm %>%
   scale_fill_gradient2(low = "gold", high = "dodgerblue") +
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
   
-
+phyla_abund %>% 
+  group_by(host_common_name, Compartment, Phylum2) %>% 
+  summarise(mean = mean(prop), se = sd(prop)/sqrt(n())) %>% 
+  group_by(Phylum2) %>% 
+  nest() %>% 
+  mutate(tot = map_dbl(data, ~mean(prop, data = .))) %>% 
+  arrange(tot)
+  ggplot(aes(Ph))
 table(phyla_abund$host_common_name)
 ```
 
