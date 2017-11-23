@@ -17,7 +17,7 @@ library(tidyverse)
 #  ungroup() %>% 
 #  saveRDS("~/RMB/SoilDomestication/Data/native_plants_data.rds")
 
-nExp <- readRDS("~/RMB/SoilDomestication/Data/native_plants_data.rds")
+nExp <- readRDS("~/RMB/SoilDomestication/Data/native_plants_data.rds") %>% filter(SampleID != "Arw.22")
 tax <- readRDS("~/RMB/SoilDomestication/Data/gg_otus_tax.rds")
 ```
 
@@ -106,20 +106,24 @@ phy_host_lm %>%
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
   
 phyla_abund %>% 
-  group_by(host_common_name, Compartment, Phylum2) %>% 
-  summarise(meanp = mean(prop), sep = sd(prop)/sqrt(n())) %>% 
   group_by(Phylum2) %>% 
   nest() %>% 
-  mutate(tot = map(data, ~mean(.x$meanp))) %>% 
-  unnest(tot) %>% 
-  arrange(-tot) %>% 
-  mutate(rank = 1:nrow(.)) %>% 
-  head(10) %>% 
+  mutate(total = map_dbl(data, ~sum(.x$prop))) %>% 
+  top_n(15, total) %>% 
   unnest(data) %>% 
-  ggplot(aes(rank, y = meanp, fill = Phylum2)) +
+  mutate(Compartment = fct_relevel(Compartment, "Bulk Soil", "Rhizosphere", "Endosphere")) %>% 
+  group_by(Compartment, host_common_name, SampleID) %>% 
+  nest() %>% 
+  group_by(Compartment) %>% 
+  arrange(host_common_name) %>% 
+  mutate(order = 1:n()) %>% 
+  unnest() %>% 
+  ggplot(aes(order, prop, fill = Phylum2)) +
   geom_bar(stat = "identity") +
-  facet_grid(.~Compartment +host_common_name) #+
-  theme(axis.text.x = element_text(color = Phylum2))
-table(phyla_abund$host_common_name)
+  geom_point(aes(x = order, y = -0.05, color = host_common_name)) +
+  facet_grid(.~Compartment, scales = "free_x") +
+  scale_fill_manual(values = c(rev(brewer.pal(11, "PRGn")),brewer.pal(5, "Blues")[-1])) +
+  theme_minimal()
+
 ```
 
