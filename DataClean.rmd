@@ -105,7 +105,7 @@ wExp <- d_data %>%
   select(-Kingdom, -Class, -Order, -Phylum, -Phylum2, -Family, -Genus, -Species, -Cultivar, -Compartment2, -sample_type, -Plant_ID, -collection_timestamp, -longitude, -latitude, -Age)
 wExp %>% 
   ungroup() %>% 
-  saveRDS("~/RMB/SoilDomestication/Data/wExp.rds")
+  write_rds("~/RMB/SoilDomestication/Data/wExp.rds", compress = "gz")
 ```
 
 

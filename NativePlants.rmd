@@ -87,8 +87,6 @@ phy_comp_lm %>%
   geom_point(size = 3) +
   scale_shape_manual(values = c(1, 16)) +
   theme_minimal()
-  
-  
 
 phy_host_lm %>% 
   filter(p.adj <= 0.05) %>% ungroup() %>% 
