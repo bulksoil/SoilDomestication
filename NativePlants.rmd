@@ -107,12 +107,19 @@ phy_host_lm %>%
   
 phyla_abund %>% 
   group_by(host_common_name, Compartment, Phylum2) %>% 
-  summarise(mean = mean(prop), se = sd(prop)/sqrt(n())) %>% 
+  summarise(meanp = mean(prop), sep = sd(prop)/sqrt(n())) %>% 
   group_by(Phylum2) %>% 
   nest() %>% 
-  mutate(tot = map_dbl(data, ~mean(prop, data = .))) %>% 
-  arrange(tot)
-  ggplot(aes(Ph))
+  mutate(tot = map(data, ~mean(.x$meanp))) %>% 
+  unnest(tot) %>% 
+  arrange(-tot) %>% 
+  mutate(rank = 1:nrow(.)) %>% 
+  head(10) %>% 
+  unnest(data) %>% 
+  ggplot(aes(rank, y = meanp, fill = Phylum2)) +
+  geom_bar(stat = "identity") +
+  facet_grid(.~Compartment +host_common_name) #+
+  theme(axis.text.x = element_text(color = Phylum2))
 table(phyla_abund$host_common_name)
 ```
 
