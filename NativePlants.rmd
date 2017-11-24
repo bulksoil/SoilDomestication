@@ -22,39 +22,36 @@ tax <- readRDS("~/RMB/SoilDomestication/Data/gg_otus_tax.rds")
 ```
 
 ```{r}
-long_pcoa <- function(x){
-  require(vegan)
-  x2 <- x %>% 
-    dplyr::select(SampleID, variable, RA, Compartment, host_common_name) %>% 
-    spread(variable, RA, fill = 0)
-  pc <- capscale(log2(x2[,4:ncol(x2)] + 1) ~ 1)
-  pc.axes <- bind_cols(x2[,1:3], as_tibble(scores(pc, choices = c(1:5))$sites))
-  pc.eig <- eigenvals(pc) / sum(eigenvals(pc))
-  pc.results <- list(axes = pc.axes, eig = pc.eig)
-  return(pc.results)
-}
-
 long_pcoa <- function(x, samples = "SampleID", otus = "variable", value = "RA", dist = "bray"){
-  metadata <- x %>% dplyr::ungroup() %>% 
-    dplyr::select_(-otus, -value) %>% 
-    dplyr::group_by_(samples) %>% 
+  to_drop <- otus
+  metadata <- x %>% 
+    dplyr::ungroup() %>% 
+    purrr::discard(is.double) %>% 
+    dplyr::select_(.dots = paste("-", to_drop)) %>% 
     dplyr::distinct()
-  return(metadata)
+  
+  wide_table <- x %>% 
+    dplyr::select_(samples, otus, value) %>% 
+    tidyr::spread_(otus, value, fill = 0)
+  
+  pc <- vegan::capscale(log2(wide_table[,2:ncol(wide_table)] + 1) ~ 1, dist = dist)
+  axes <- dplyr::bind_cols(metadata, dplyr::as_tibble(vegan::scores(pc, choices = c(1:5))$sites))
+  eigen_vals <- vegan::eigenvals(pc) / sum(vegan::eigenvals(pc))
+  
+  return(list(axes = axes, eigen_vals = eigen_vals))
 }
 ```
-```{r}
-joe <- long_pcoa(nExp)
-```
+
 
 ```{r}
-nPC <- long_pcoa(nExp %>% group_by(variable) %>% filter(sum(value) > 0) %>% mutate(RA = RA*1000))
+nPC <- long_pcoa(nExp %>% group_by(variable) %>% filter(sum(value) > 0) %>% mutate(RA = RA*1000), dist = "bray")
 nPC$axes %>% 
   ggplot(aes(MDS1, MDS2, color = host_common_name)) +
   geom_point(size = 3, alpha = 0.7) +
   stat_ellipse(aes(group = Compartment), color = "black") +
   scale_color_brewer(palette = "Set1", direction = -1) +
   theme_minimal() +
-  labs(x = paste("PCo1 (", round(nPC$eig[1] * 100, 2), "%)", sep = ""), y = paste("PCo2 (", round(nPC$eig[2] * 100, 2), "%)", sep = ""))
+  labs(x = paste("PCo1 (", round(nPC$eigen_vals[1] * 100, 2), "%)", sep = ""), y = paste("PCo2 (", round(nPC$eigen_vals[2] * 100, 2), "%)", sep = ""))
 ```
 
 ```{r}
