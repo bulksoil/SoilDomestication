@@ -33,6 +33,17 @@ long_pcoa <- function(x){
   pc.results <- list(axes = pc.axes, eig = pc.eig)
   return(pc.results)
 }
+
+long_pcoa <- function(x, samples = "SampleID", otus = "variable", value = "RA", dist = "bray"){
+  metadata <- x %>% dplyr::ungroup() %>% 
+    dplyr::select_(-otus, -value) %>% 
+    dplyr::group_by_(samples) %>% 
+    dplyr::distinct()
+  return(metadata)
+}
+```
+```{r}
+joe <- long_pcoa(nExp)
 ```
 
 ```{r}
@@ -118,12 +129,18 @@ phyla_abund %>%
   arrange(host_common_name) %>% 
   mutate(order = 1:n()) %>% 
   unnest() %>% 
-  ggplot(aes(order, prop, fill = Phylum2)) +
+  ggplot(aes(order, prop * 100, fill = Phylum2)) +
   geom_bar(stat = "identity") +
-  geom_point(aes(x = order, y = -0.05, color = host_common_name)) +
+  geom_point(aes(x = order, y = -2, color = host_common_name)) +
   facet_grid(.~Compartment, scales = "free_x") +
-  scale_fill_manual(values = c(rev(brewer.pal(11, "PRGn")),brewer.pal(5, "Blues")[-1])) +
-  theme_minimal()
+  scale_fill_manual(values = c(brewer.pal(11, "RdGy"),brewer.pal(5, "Blues")[-1])) +
+  scale_color_brewer(palette = "Set1", direction = -1) +
+  labs(x = "", y = "Percent of Reads") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), legend.position = "bottom")
+```
+
+```{r}
 
 ```
 
