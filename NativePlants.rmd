@@ -54,6 +54,7 @@ nPC$axes %>%
   labs(x = paste("PCo1 (", round(nPC$eigen_vals[1] * 100, 2), "%)", sep = ""), y = paste("PCo2 (", round(nPC$eigen_vals[2] * 100, 2), "%)", sep = ""))
 ```
 
+## Phyla Stuff
 ```{r}
 phyla_abund <- nExp %>% 
   inner_join(tax, by = "variable") %>% 
@@ -66,6 +67,18 @@ phyla_abund <- nExp %>%
   mutate(emp_estimate = (phy_total + alpha + 1) / (depth + 1 + alpha + beta))
 
 phy_host_lm <- phyla_abund %>% 
+  group_by(Compartment, Phylum2) %>% 
+  filter(host_common_name != "Soil") %>% 
+  mutate(host_common_name = fct_relevel(host_common_name, "Rice", "Redstem", "Sedge", "Mudplantain")) %>% 
+  nest() %>% 
+  mutate(models = map(data, ~tidy(lm(log2(emp_estimate) ~ host_common_name, .)))) %>% 
+  unnest(models) %>% 
+  filter(term != "(Intercept)") %>% 
+  mutate(term = gsub("host_common_name", "", term)) %>% 
+  group_by(Compartment) %>% 
+  mutate(p.adj = p.adjust(p.value, "fdr"))
+
+phy_host_lm1 <- phyla_abund %>% 
   group_by(Compartment, Phylum2) %>% 
   filter(host_common_name != "Soil") %>% 
   mutate(host_common_name = fct_relevel(host_common_name, "Rice", "Redstem", "Sedge", "Mudplantain")) %>% 
@@ -110,7 +123,7 @@ phy_host_lm %>%
   ggplot(aes(Phylum2, term, fill = estimate)) +
   geom_tile() +
   facet_grid(Compartment~.) +
-  scale_fill_gradient2(low = "gold", high = "dodgerblue") +
+  scale_fill_gradient2(low = "gold", high = "dodgerblue", mid = 'black') +
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
   
 phyla_abund %>% 
@@ -137,7 +150,12 @@ phyla_abund %>%
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), legend.position = "bottom")
 ```
 
+## Differential Abundance
 ```{r}
-
+nExp %>% 
+  group_by(variable) %>% 
+  filter(sum(value > 0) / n() > 0.2) %>% 
+  group_by(Compartment, variable) %>% 
+  
 ```
 
