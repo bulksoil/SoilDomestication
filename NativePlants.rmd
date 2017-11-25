@@ -6,7 +6,9 @@ output: html_notebook
 ```{r}
 library(vegan)
 library(broom)
+library(MASS)
 library(tidyverse)
+library(broom)
 ```
 
 ```{r}
@@ -17,7 +19,8 @@ library(tidyverse)
 #  ungroup() %>% 
 #  saveRDS("~/RMB/SoilDomestication/Data/native_plants_data.rds")
 
-nExp <- readRDS("~/RMB/SoilDomestication/Data/native_plants_data.rds") %>% filter(SampleID != "Arw.22")
+nExp <- readRDS("~/RMB/SoilDomestication/Data/native_plants_data.rds") %>% filter(SampleID != "Arw.22") %>% 
+  mutate(cpm = round(value * (1000000 / depth)))
 tax <- readRDS("~/RMB/SoilDomestication/Data/gg_otus_tax.rds")
 ```
 
@@ -40,11 +43,17 @@ long_pcoa <- function(x, samples = "SampleID", otus = "variable", value = "RA", 
   
   return(list(axes = axes, eigen_vals = eigen_vals))
 }
+
+raref <- function(x, sampling_depth, value = "value", otus = "variable") {
+  rare_values <- data.frame(table(sample(x$`variable`, sampling_depth, replace = T, prob = x$`value`/x$depth)))
+  names(rare_values) <- c("variable", "rare_value")
+  return(suppressMessages(left_join(x, rare_values, by = "variable") %>% replace_na(list(rare_value = 0))))
+}
 ```
 
 
-```{r}
-nPC <- long_pcoa(nExp %>% group_by(variable) %>% filter(sum(value) > 0) %>% mutate(RA = RA*1000), dist = "bray")
+```{r} 
+nPC <- long_pcoa(nExp %>% group_by(variable) %>% filter(sum(value) > 0) %>% mutate(RA = RA*1000), dist = "bray", value = "cpm")
 nPC$axes %>% 
   ggplot(aes(MDS1, MDS2, color = host_common_name)) +
   geom_point(size = 3, alpha = 0.7) +
@@ -152,10 +161,74 @@ phyla_abund %>%
 
 ## Differential Abundance
 ```{r}
-nExp %>% 
+safe_glm <- possibly(glm, NA_real_)
+safe_glm.nb <- possibly(glm.nb, NA_real_)
+
+nExp2 <- nExp %>% 
+  ungroup() %>% 
+  mutate(variable = factor(variable)) %>% 
+  group_by(SampleID) %>% 
+  nest() %>% 
+  mutate(rare = map(data, ~raref(., sampling_depth = 15000, value = "value"))) %>% 
+  unnest(rare)
+
+head(nExp2)
+
+pois_glm <- nExp %>% 
+  filter(Compartment != "Bulk Soil") %>% 
   group_by(variable) %>% 
-  filter(sum(value > 0) / n() > 0.2) %>% 
-  group_by(Compartment, variable) %>% 
-  
+  filter(sum(cpm > 0) / n() > 0.5) %>% 
+  mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
+  group_by(variable, Compartment) %>% 
+  nest() %>%
+  mutate(models = map(data, ~safe_glm.pois(cpm ~ host_common_name, family = poisson, .)))
+
+nb_glm <- nExp2 %>% 
+  filter(Compartment != "Bulk Soil") %>% 
+  group_by(variable) %>% 
+  filter(sum(rare_value > 0) / n() > 0.1) %>% 
+  mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
+  group_by(variable, Compartment) %>% 
+  nest() %>%
+  mutate(models = map(data, ~suppressWarnings(safe_glm.nb(rare_value ~ host_common_name + offset(depth), .))))
+
+nb_glm %>% 
+  unnest(map(models, ~tidy(.))) %>% 
+  mutate(p.adj = p.adjust(p.value, "fdr")) %>% 
+  filter(term != "(Intercept)") %>% 
+  mutate(direction = ifelse(estimate > 0, "Weed", "Rice")) %>% 
+  filter(p.adj <= 0.05) %>% 
+  group_by(Compartment, direction, variable) %>% 
+  summarise(n = n()) %>% 
+  filter(n == 3) %>% 
+  group_by(Compartment, direction) %>% 
+  summarise(n = n())
+
+plant_lm <- nExp %>% 
+  filter(Compartment != "Bulk Soil") %>% 
+  group_by(variable) %>% 
+  filter(sum(cpm > 0) / n() > 0.1) %>% 
+  mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
+  group_by(variable, Compartment) %>% 
+  nest() %>%
+  mutate(models = map(data, ~lm(log2(cpm + 1) ~ host_common_name, .)))
+
+plant_lm %>% 
+  unnest(map(models, ~tidy(.))) %>% 
+  mutate(p.adj = p.adjust(p.value, "fdr")) %>% 
+  filter(term != "(Intercept)") %>% 
+  mutate(direction = ifelse(estimate > 0, "Weed", "Rice")) %>% 
+  filter(p.adj <= 0.05) %>% 
+  group_by(Compartment, direction, variable) %>% 
+  summarise(n = n()) %>% 
+  filter(n == 3) %>% 
+  group_by(Compartment, direction) %>% 
+  summarise(n = n())
+
+nExp2 %>% 
+  filter(variable == "1091625" & Compartment == "Endosphere") %>% 
+  ggplot(aes(host_common_name, rare_value, color = host_common_name)) +
+  geom_jitter(height = 0, width = 0.1)
+tax["1091625",]
 ```
 
