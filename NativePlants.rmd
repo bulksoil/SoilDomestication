@@ -9,6 +9,7 @@ library(broom)
 library(MASS)
 library(tidyverse)
 library(broom)
+library(tidyMB)
 ```
 
 ```{r}
@@ -25,25 +26,6 @@ tax <- readRDS("~/RMB/SoilDomestication/Data/gg_otus_tax.rds")
 ```
 
 ```{r}
-long_pcoa <- function(x, samples = "SampleID", otus = "variable", value = "RA", dist = "bray"){
-  to_drop <- otus
-  metadata <- x %>% 
-    dplyr::ungroup() %>% 
-    purrr::discard(is.double) %>% 
-    dplyr::select_(.dots = paste("-", to_drop)) %>% 
-    dplyr::distinct()
-  
-  wide_table <- x %>% 
-    dplyr::select_(samples, otus, value) %>% 
-    tidyr::spread_(otus, value, fill = 0)
-  
-  pc <- vegan::capscale(log2(wide_table[,2:ncol(wide_table)] + 1) ~ 1, dist = dist)
-  axes <- dplyr::bind_cols(metadata, dplyr::as_tibble(vegan::scores(pc, choices = c(1:5))$sites))
-  eigen_vals <- vegan::eigenvals(pc) / sum(vegan::eigenvals(pc))
-  
-  return(list(axes = axes, eigen_vals = eigen_vals))
-}
-
 raref <- function(x, sampling_depth, value = "value", otus = "variable") {
   rare_values <- data.frame(table(sample(x$`variable`, sampling_depth, replace = T, prob = x$`value`/x$depth)))
   names(rare_values) <- c(otus, "rare_value")
@@ -61,6 +43,15 @@ nPC$axes %>%
   scale_color_brewer(palette = "Set1", direction = -1) +
   theme_minimal() +
   labs(x = paste("PCo1 (", round(nPC$eigen_vals[1] * 100, 2), "%)", sep = ""), y = paste("PCo2 (", round(nPC$eigen_vals[2] * 100, 2), "%)", sep = ""))
+```
+```{r}
+long_adonis(nExp %>% mutate(RA2 = log2((RA*1000) + 1)), value = "RA2", formula = "Compartment * host_common_name")
+nExp %>% 
+  mutate(RA2 = log2((RA*1000) + 1)) %>% 
+  group_by(Compartment) %>% 
+  nest() %>% 
+  filter(Compartment != "Bulk Soil") %>% 
+  mutate(ad = map(data, ~long_adonis(., value = "RA2", formula = "host_common_name")))
 ```
 
 ## Phyla Stuff
@@ -172,8 +163,6 @@ nExp2 <- nExp %>%
   mutate(rare = map(data, ~raref(., sampling_depth = 15000, value = "value"))) %>% 
   unnest(rare)
 
-head(nExp2)
-
 pois_glm <- nExp2 %>% 
   filter(Compartment != "Bulk Soil") %>% 
   group_by(variable) %>% 
@@ -182,8 +171,6 @@ pois_glm <- nExp2 %>%
   group_by(variable, Compartment) %>% 
   nest() %>%
   mutate(models = map(data, ~suppressWarnings(safe_glm.pois(rare_value ~ host_common_name + offset(log2(depth)), family = poisson, .))))
-
-
 
 nb_glm <- nExp2 %>% 
   filter(Compartment != "Bulk Soil") %>% 
@@ -202,12 +189,6 @@ plant_lm <- nExp %>%
   group_by(variable, Compartment) %>% 
   nest() %>%
   mutate(models = map(data, ~lm(log2((RA * 1000) + 1) ~ host_common_name, .)))
-
-nExp2 %>% 
-  filter(variable == "1110462" & Compartment == "Rhizosphere") %>% 
-  ggplot(aes(host_common_name, rare_value, color = host_common_name)) +
-  geom_jitter(height = 0, width = 0.1)
-tax["1091625",]
 ```
 
 ```{r}
@@ -252,5 +233,26 @@ plant_lm %>%
   filter(n == 3) %>% 
   group_by(Compartment, direction, total) %>% 
   summarise(n = n())
+```
+
+```{r}
+bind_cols(plant_lm %>% mutate(model = "lm"),
+          nb_glm %>% mutate(model = "glm.nb"),
+          pois_glm %>% mutate(model) = "glm.nb") %>% 
+  unnest(map(models, ~tidy(.))) %>% 
+  group_by(Compartment, model) %>% 
+  mutate(p.adj = p.adjust(p.value, "fdr")) %>% 
+  filter(p.adj <= 0.05) %>% 
+  mutate(direction = ifelse(estimate > 0, "Weed", "Rice")) %>% 
+  
+```
+
+
+```{r}
+nExp2 %>% 
+  filter(variable == "1110462" & Compartment == "Rhizosphere") %>% 
+  ggplot(aes(host_common_name, rare_value, color = host_common_name)) +
+  geom_jitter(height = 0, width = 0.1)
+tax["1091625",]
 ```
 
