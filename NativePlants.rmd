@@ -46,14 +46,14 @@ long_pcoa <- function(x, samples = "SampleID", otus = "variable", value = "RA", 
 
 raref <- function(x, sampling_depth, value = "value", otus = "variable") {
   rare_values <- data.frame(table(sample(x$`variable`, sampling_depth, replace = T, prob = x$`value`/x$depth)))
-  names(rare_values) <- c("variable", "rare_value")
-  return(suppressMessages(left_join(x, rare_values, by = "variable") %>% replace_na(list(rare_value = 0))))
+  names(rare_values) <- c(otus, "rare_value")
+  return(suppressMessages(left_join(x, rare_values, by = otus) %>% replace_na(list(rare_value = 0))))
 }
 ```
 
 
 ```{r} 
-nPC <- long_pcoa(nExp %>% group_by(variable) %>% filter(sum(value) > 0) %>% mutate(RA = RA*1000), dist = "bray", value = "cpm")
+nPC <- long_pcoa(nExp %>% group_by(variable) %>% filter(sum(value) > 0) %>% mutate(RA = RA*1000), dist = "bray", value = "RA")
 nPC$axes %>% 
   ggplot(aes(MDS1, MDS2, color = host_common_name)) +
   geom_point(size = 3, alpha = 0.7) +
@@ -174,14 +174,16 @@ nExp2 <- nExp %>%
 
 head(nExp2)
 
-pois_glm <- nExp %>% 
+pois_glm <- nExp2 %>% 
   filter(Compartment != "Bulk Soil") %>% 
   group_by(variable) %>% 
-  filter(sum(cpm > 0) / n() > 0.5) %>% 
+  filter(sum(rare_value > 0) / n() > 0.1) %>% 
   mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
   group_by(variable, Compartment) %>% 
   nest() %>%
-  mutate(models = map(data, ~safe_glm.pois(cpm ~ host_common_name, family = poisson, .)))
+  mutate(models = map(data, ~suppressWarnings(safe_glm.pois(rare_value ~ host_common_name + offset(log2(depth)), family = poisson, .))))
+
+
 
 nb_glm <- nExp2 %>% 
   filter(Compartment != "Bulk Soil") %>% 
@@ -190,7 +192,38 @@ nb_glm <- nExp2 %>%
   mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
   group_by(variable, Compartment) %>% 
   nest() %>%
-  mutate(models = map(data, ~suppressWarnings(safe_glm.nb(rare_value ~ host_common_name + offset(depth), .))))
+  mutate(models = map(data, ~suppressWarnings(safe_glm.nb(rare_value ~ host_common_name + offset(log2(depth)), .))))
+
+plant_lm <- nExp %>% 
+  filter(Compartment != "Bulk Soil") %>% 
+  group_by(variable) %>% 
+  filter(sum(cpm > 0) / n() > 0.1) %>% 
+  mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
+  group_by(variable, Compartment) %>% 
+  nest() %>%
+  mutate(models = map(data, ~lm(log2((RA * 1000) + 1) ~ host_common_name, .)))
+
+nExp2 %>% 
+  filter(variable == "1110462" & Compartment == "Rhizosphere") %>% 
+  ggplot(aes(host_common_name, rare_value, color = host_common_name)) +
+  geom_jitter(height = 0, width = 0.1)
+tax["1091625",]
+```
+
+```{r}
+pois_glm %>% 
+  unnest(map(models, ~tidy(.))) %>% 
+  mutate(p.adj = p.adjust(p.value, "fdr")) %>% 
+  filter(term != "(Intercept)") %>% 
+  mutate(direction = ifelse(estimate > 0, "Weed", "Rice")) %>% 
+  filter(p.adj <= 0.05) %>% 
+  group_by(Compartment, direction, variable) %>% 
+  summarise(n = n()) %>% 
+  group_by(Compartment, direction) %>% 
+  mutate(total = n()) %>% 
+  filter(n == 3) %>% 
+  group_by(Compartment, direction, total) %>% 
+  summarise(n = n())
 
 nb_glm %>% 
   unnest(map(models, ~tidy(.))) %>% 
@@ -200,18 +233,11 @@ nb_glm %>%
   filter(p.adj <= 0.05) %>% 
   group_by(Compartment, direction, variable) %>% 
   summarise(n = n()) %>% 
-  filter(n == 3) %>% 
   group_by(Compartment, direction) %>% 
+  mutate(total = n()) %>% 
+  filter(n == 3) %>% 
+  group_by(Compartment, direction, total) %>% 
   summarise(n = n())
-
-plant_lm <- nExp %>% 
-  filter(Compartment != "Bulk Soil") %>% 
-  group_by(variable) %>% 
-  filter(sum(cpm > 0) / n() > 0.1) %>% 
-  mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
-  group_by(variable, Compartment) %>% 
-  nest() %>%
-  mutate(models = map(data, ~lm(log2(cpm + 1) ~ host_common_name, .)))
 
 plant_lm %>% 
   unnest(map(models, ~tidy(.))) %>% 
@@ -221,14 +247,10 @@ plant_lm %>%
   filter(p.adj <= 0.05) %>% 
   group_by(Compartment, direction, variable) %>% 
   summarise(n = n()) %>% 
-  filter(n == 3) %>% 
   group_by(Compartment, direction) %>% 
+  mutate(total = n()) %>% 
+  filter(n == 3) %>% 
+  group_by(Compartment, direction, total) %>% 
   summarise(n = n())
-
-nExp2 %>% 
-  filter(variable == "1091625" & Compartment == "Endosphere") %>% 
-  ggplot(aes(host_common_name, rare_value, color = host_common_name)) +
-  geom_jitter(height = 0, width = 0.1)
-tax["1091625",]
 ```
 
