@@ -196,10 +196,10 @@ edgeR_plant <- nExp %>%
   filter(sum(value > 0) / n() > 0.1) %>% 
   group_by(Compartment) %>% 
   nest() %>% 
-  mutate(DGEL = map(data, ~tidyDGEL2(., value = "value", group = "host_common_name", method = "DESeq2")))
+  mutate(DGEL = map(data, ~tidyDGEL2(., value = "value", formula = "~ host_common_name", method = "DESeq2", group_column = "host_common_name")))
 ```
 ```{r}
-tidyDGEL2 <- function(x, method = "edgeR", samples = "SampleID", otus = "variable", value = "value", group_column){
+tidyDGEL2 <- function(x, method = "edgeR", samples = "SampleID", otus = "variable", value = "value", group_column = NULL, formula = NULL){
 
 	
 	wide_table <- tidyMB::widen(x, samples = samples, otus = otus, value = value)
@@ -210,8 +210,8 @@ tidyDGEL2 <- function(x, method = "edgeR", samples = "SampleID", otus = "variabl
 		                   group = metadata %>% select_(group_column) %>% dplyr::pull())
 	} else if(method == "DESeq2") {
 		y = DESeq2::DESeqDataSetFromMatrix(countData = t(wide_table[,2:ncol(wide_table)]), 
-		                                   colData = metadata %>% dplyr::select_(group, samples),
-		                                   design = ~ group)
+		                                   colData = metadata,
+		                                   design = formula(formula))
 	} else {
 		stop(paste("Wrong method supplied:\nDo not recognize ", method, sep = ""))
 	}
