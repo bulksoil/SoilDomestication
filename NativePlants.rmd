@@ -206,6 +206,7 @@ edgeR_plant <- nExp %>%
   filter(sum(value > 0) / n() > 0.1) %>% 
   mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
   group_by(Compartment) %>% 
+  mutate(group)
   nest() %>% 
   mutate(DGEL = map(data, ~tidyDGEL2(., value = "value", group_column = "host_common_name"))) %>% 
   mutate(design = map(data, ~model.matrix(~host_common_name, tidyMB::grab_metadata(.)))) %>% 
@@ -226,21 +227,16 @@ DESeq2_plant <- nExp %>%
   mutate(group = paste(Compartment, host_common_name, sep = ".")) %>% 
   group_by(group_var = "DESeq2") %>% 
   nest() %>% 
-  mutate(DGEL = map(data, ~tidyDGEL2(., value = "value", group_column = "group", method = "DESeq2", formula = "~ group"))) %>% 
+  mutate(DGEL = map(data, ~tidyDGEL(., value = "value", group_column = "group", method = "DESeq2", formula = "~ group"))) %>% 
   mutate(dds = map(DGEL, ~DESeq(.))) %>% 
-  mutate(Sedge_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Sedge")))) %>% 
-  mutate(Mudplantain_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Mudplantain")))) %>% 
-  mutate(RedStem_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Redstem")))) %>% 
-  mutate(Sedge_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Sedge")))) %>% 
-  mutate(Mudplantain_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Mudplantain")))) %>% 
-  mutate(RedStem_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Redstem")))) 
-DESeq2_plant %>% select(Mudplantain_RS, Sedge_RS, RedStem_RS, Mudplantain_ES, Sedge_ES, RedStem_ES, group_var) %>% 
-  gather(key = taxon, value = results, -group_var) %>% 
-  unnest(map(results, ~tidy(.))) %>% 
-  separate(taxon, sep = "_")
-  mutate(direction = ifesle(estimate < 0, "Weed", "Rice")) %>% 
-  filter(p.adj <= 0.05) %>% 
-  group_by(taxon, variable)
+  mutate(Sedge_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Sedge"), addMLE=TRUE))) %>% 
+  mutate(Mudplantain_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Mudplantain"), addMLE=TRUE))) %>% 
+  mutate(RedStem_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Redstem"), addMLE=TRUE))) %>% 
+  mutate(Sedge_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Sedge"), addMLE=TRUE))) %>% 
+  mutate(Mudplantain_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Mudplantain"), addMLE=TRUE))) %>% 
+  mutate(RedStem_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Redstem"), addMLE=TRUE))) 
+
+
 ```
 
 ```{r}
@@ -317,6 +313,19 @@ lm_plant %>%
   group_by(Compartment, direction, total) %>% 
   summarise(n = n())
 
+DESeq2_plant %>% select(Mudplantain_RS, Sedge_RS, RedStem_RS, Mudplantain_ES, Sedge_ES, RedStem_ES, group_var) %>% 
+  gather(key = taxon, value = results, -group_var) %>% 
+  unnest(map(results, ~tidy(.))) %>% 
+  separate(taxon, sep = "_", into = c("Taxon", "Compartment")) %>% 
+  mutate(direction = ifelse(estimate < 0, "Weed", "Rice")) %>% 
+  filter(p.adjusted <= 0.05) %>% 
+  dplyr::count(direction, Compartment, gene) %>% 
+  dplyr::add_count(direction, Compartment) %>% 
+  filter(n == 3) %>% 
+  dplyr::count(direction, Compartment, nn) %>% 
+  arrange(Compartment) %>% 
+  mutate(prop = nnn/nn)
+
 dg_tidy <- function(x){
   newt <- x$table
   newt$gene <- row.names(newt)
@@ -375,6 +384,16 @@ significant_otus %>% group_by(Compartment, direction, variable, term) %>%
 
 
 ```{r}
+DESeq2_plant %>% select(Mudplantain_RS, Sedge_RS, RedStem_RS, Mudplantain_ES, Sedge_ES, RedStem_ES, group_var) %>% 
+  gather(key = taxon, value = results, -group_var) %>% 
+  unnest(map(results, ~tidy(.))) %>% 
+  separate(taxon, sep = "_", into = c("Taxon", "Compartment")) %>% 
+ # filter(abs(estimate) <10) %>% 
+  ggplot(aes(baseMean, estimate, color = ifelse(p.adjusted <= 0.05, "s", "ns"))) +
+    geom_point() +
+    facet_grid(Compartment ~ Taxon) +
+    scale_x_log10()
+
 nExp %>% 
   filter(variable == "1000148") %>% 
   ggplot(aes(host_common_name, RA, color = host_common_name)) +
