@@ -16,7 +16,7 @@ library(tidyMB)
 ```{r}
 ## Do Not Run
 #wExp <- readRDS("~/RMB/SoilDomestication/Data/wExp.rds")
-#wExp %>% 
+#nExp <- wExp %>% 
 #  filter(Site == "Arkansas") %>% 
 #  ungroup() %>% 
 #  saveRDS("~/RMB/SoilDomestication/Data/native_plants_data.rds")
@@ -253,6 +253,33 @@ DESeq2_plant <- nExp %>%
 
 
 ```
+```{r}
+intersect_lm <- lm_plant %>% 
+  unnest(map(models, ~tidy(.))) %>% 
+  mutate(p.adj = p.adjust(p.value, "fdr")) %>% 
+  filter(term != "(Intercept)") %>% 
+  mutate(direction = ifelse(estimate > 0, "Weed", "Rice")) %>%
+  mutate(term = gsub("host_common_name", "", term)) %>% 
+  filter(p.adj <= 0.05) %>% 
+  dplyr::count(direction, Compartment, variable) %>% 
+  dplyr::add_count(direction, Compartment) %>% 
+  filter(n == 3)
+
+intersect_edger %>% 
+  filter(direction == "Weed") %>% 
+  inner_join(nExp, by = c("Compartment", "variable")) %>% 
+  group_by(SampleID, Compartment, host_common_name) %>% 
+  summarise(total = sum(RA)) %>% 
+  arrange(Compartment, host_common_name) %>% 
+  group_by(Compartment) %>% 
+  mutate(order = 1:n()) %>% 
+  ggplot(aes(x = order, y = total, fill = host_common_name)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~Compartment, scales = "free")
+
+length(intersect(intersect_deseq %>% filter(Compartment == "Rhizosphere" & direction == "Rice") %>% pull(variable),
+                 intersect_lm %>% filter(Compartment == "Rhizosphere" & direction == "Rice") %>% pull(variable)))
+```
 
 
 ```{r}
@@ -290,7 +317,7 @@ intersect_lm <- lm_plant %>%
   filter(n == 3)
 
 intersect_deseq <- DESeq2_plant %>% 
-  select(Mudplantain_RS, Sedge_RS, RedStem_RS, Mudplantain_ES, Sedge_ES, RedStem_ES, group_var) %>% 
+  select(Mudplantain_RS, Sedge_RS, RedStem_RS, Mudplantain_ES, Sedge_ES, Redstem_ES, group_var) %>% 
   gather(key = taxon, value = results, -group_var) %>% 
   unnest(map(results, ~tidy(.))) %>% 
   separate(taxon, sep = "_", into = c("Taxon", "Compartment")) %>% 
@@ -314,11 +341,11 @@ intersect_edger <- edgeR_results %>%
   mutate(Compartment = gsub("ES", "Endosphere", Compartment),
          Compartment = gsub("RS", "Rhizosphere", Compartment))
 
-intersect_edger %>% 
-  dplyr::count(direction, Compartment, nn)
+
 
 intersect_edger %>% inner_join(intersect_lm, by = c("variable", "Compartment", "direction")) %>% dplyr::count(Compartment, direction)
 intersect_lm %>% dplyr::count(Compartment, direction, nn)
+intersect_deseq %>% dplyr::count(direction, Compartment, nn)
 intersect_edger %>% dplyr::count(Compartment, direction, nn) %>% mutate(prop = nnn/nn)
 
 intersects <- intersect(intersect_lm %>% filter(Compartment == "Endosphere" & direction == "Rice") %>% pull(variable),

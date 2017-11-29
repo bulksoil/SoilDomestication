@@ -1,0 +1,26 @@
+---
+title: "Soil Domestication"
+output: html_notebook
+---
+
+```{r}
+library(vegan)
+library(broom)
+library(MASS)
+library(tidyverse)
+library(broom)
+library(biobroom)
+library(tidyMB)
+```
+
+```{r}
+## Do Not Run
+#wExp <- readRDS("~/RMB/SoilDomestication/Data/wExp.rds")
+#dExp <- wExp %>% 
+#  filter(Site == "Arkansas") %>% 
+#  ungroup() %>% 
+#  saveRDS("~/RMB/SoilDomestication/Data/native_plants_data.rds")
+
+dExp <- readRDS("~/RMB/SoilDomestication/Data/native_plants_data.rds")
+tax <- readRDS("~/RMB/SoilDomestication/Data/gg_otus_tax.rds")
+```
