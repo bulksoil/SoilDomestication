@@ -53,7 +53,8 @@ nExp %>%
   group_by(Compartment) %>% 
   nest() %>% 
   filter(Compartment != "Bulk Soil") %>% 
-  mutate(ad = map(data, ~long_adonis(., value = "RA2", formula = "host_common_name")))
+  mutate(ad = map(data, ~long_adonis(., value = "RA2", formula = "host_common_name"))) %>% 
+  unnest(map(ad, ~tidy(.)))
 ```
 
 
@@ -362,6 +363,41 @@ lm_plant %>%
   facet_grid(Compartment ~ term)
 ```
 
+
+```{r}
+lm_plant %>% 
+  unnest(map(models, ~tidy(.))) %>% 
+  mutate(p.adj = p.adjust(p.value, "fdr")) %>% 
+  filter(term != "(Intercept)") %>% 
+  mutate(direction = ifelse(estimate > 0, "Weed", "Rice")) %>%
+  mutate(term = gsub("host_common_name", "", term)) %>% 
+  filter(p.adj <= 0.05) %>% 
+  dplyr::count(Compartment, direction, term) %>% 
+  arrange(direction) %>% 
+  arrange(Compartment)
+
+DESeq2_plant %>% 
+  select(Mudplantain_RS, Sedge_RS, RedStem_RS, Mudplantain_ES, Sedge_ES, Redstem_ES, group_var) %>% 
+  gather(key = taxon, value = results, -group_var) %>% 
+  unnest(map(results, ~tidy(.))) %>% 
+  separate(taxon, sep = "_", into = c("Taxon", "Compartment")) %>% 
+  mutate(direction = ifelse(estimate < 0, "Weed", "Rice")) %>% 
+  filter(p.adjusted <= 0.005) %>% 
+  dplyr::count(Compartment, direction, Taxon) %>% 
+  arrange(direction) %>% 
+  arrange(Compartment)
+
+edgeR_results %>% 
+  group_by(Compartment, taxon) %>% 
+  mutate(p.adj = p.adjust(p.value, "fdr")) %>% 
+  filter(p.adj <= 0.009) %>% 
+  mutate(direction = ifelse(logFC < 0, "Weed", "Rice")) %>% ungroup() %>% 
+  dplyr::count(direction, Compartment, variable) %>%
+  filter(n == 3) %>% 
+  dplyr::count(direction, Compartment)
+  arrange(direction) %>% 
+  arrange(Compartment)
+```  
 
 ```{r}
 DESeq2_plant %>% 
