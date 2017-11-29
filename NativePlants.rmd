@@ -36,7 +36,8 @@ raref <- function(x, sampling_depth, value = "value", otus = "variable") {
 
 
 ```{r} 
-nPC <- tidy_pcoa(nExp %>% group_by(variable) %>% filter(sum(value) > 0) %>% mutate(RA = RA*1000), dist = "bray", value = "RA")
+nPC <- tidy_pcoa(nExp %>% group_by(variable) %>% filter(sum(value) > 0) %>% mutate(RA = RA*1000), dist = "bray", value = "RA", keep_loadings = T)
+
 nPC$axes %>% 
   ggplot(aes(MDS1, MDS2, color = host_common_name)) +
   geom_point(size = 3, alpha = 0.7) +
@@ -54,6 +55,7 @@ nExp %>%
   filter(Compartment != "Bulk Soil") %>% 
   mutate(ad = map(data, ~long_adonis(., value = "RA2", formula = "host_common_name")))
 ```
+
 
 ## Phyla Stuff
 ```{r}
@@ -151,6 +153,7 @@ phyla_abund %>%
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), legend.position = "bottom")
 ```
 
+
 ## Differential Abundance
 ```{r}
 safe_glm <- possibly(glm, NA_real_)
@@ -161,7 +164,7 @@ nExp2 <- nExp %>%
   mutate(variable = factor(variable)) %>% 
   group_by(SampleID) %>% 
   nest() %>% 
-  mutate(rare = map(data, ~raref(., sampling_depth = 15000, value = "value"))) %>% 
+  mutate(rare = map(data, ~raref(., sampling_depth = 14000, value = "value"))) %>% 
   unnest(rare)
 
 pois_glm_plant <- nExp2 %>% 
@@ -180,7 +183,7 @@ nb_glm_plant <- nExp2 %>%
   mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
   group_by(variable, Compartment) %>% 
   nest() %>%
-  mutate(models = map(data, ~suppressWarnings(safe_glm.nb(value ~ host_common_name + offset(log2(depth)), .))))
+  mutate(models = map(data, ~suppressWarnings(safe_glm.nb(rare_value ~ host_common_name + offset(log2(depth)), .))))
 
 nb_glm_plant_int <- nExp2 %>% 
   filter(Compartment != "Bulk Soil") %>% 
@@ -193,7 +196,7 @@ nb_glm_plant_int <- nExp2 %>%
 
 lm_plant <- nExp %>% 
   filter(Compartment != "Bulk Soil") %>% 
-  group_by(variable) %>% 
+  group_by(variable, Compartment) %>% 
   filter(sum(value > 0) / n() > 0.1) %>% 
   mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
   group_by(variable, Compartment) %>% 
@@ -238,45 +241,18 @@ DESeq2_plant <- nExp %>%
   group_by(group_var = "DESeq2") %>% 
   nest() %>% 
   mutate(DGEL = map(data, ~tidyDGEL(., value = "value", group_column = "group", method = "DESeq2", formula = "~ group"))) %>% 
-  mutate(dds = map(DGEL, ~DESeq(., test = "LRT"))) %>% 
-  mutate(Sedge_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Sedge"), addMLE=TRUE))) %>% 
-  mutate(Mudplantain_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Mudplantain"), addMLE=TRUE))) %>% 
-  mutate(RedStem_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Redstem"), addMLE=TRUE))) %>% 
-  mutate(Sedge_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Sedge"), addMLE=TRUE))) %>% 
-  mutate(Mudplantain_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Mudplantain"), addMLE=TRUE))) %>% 
-  mutate(Redstem_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Redstem"), addMLE=TRUE))) 
+  mutate(dds = map(DGEL, ~DESeq(.))) %>% 
+  mutate(Sedge_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Sedge")))) %>% 
+  mutate(Mudplantain_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Mudplantain")))) %>% 
+  mutate(RedStem_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Redstem")))) %>% 
+  mutate(Sedge_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Sedge")))) %>% 
+  mutate(Mudplantain_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Mudplantain")))) %>% 
+  mutate(Redstem_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Redstem")))) %>% 
+  select(Mudplantain_RS, Sedge_RS, RedStem_RS, Mudplantain_ES, Sedge_ES, Redstem_ES, group_var) 
 
 
 ```
 
-```{r}
-edgeR_plant %>% 
-  mutate(Mudplantain = map(fit, ~edgeR::glmLRT(., coef = paste("group", c("Rhizosphere.Rice", "Rhizosphere.Sedge"), sep = ""))))
-edgeR_plant$design[[1]]
-```
-
-
-```{r}
-tidyDGEL2 <- function(x, method = "edgeR", samples = "SampleID", otus = "variable", value = "value", group_column = NULL, formula = NULL){
-
-	
-	wide_table <- tidyMB::widen(x, samples = samples, otus = otus, value = value)
-	metadata <- tidyMB::grab_metadata(x, samples = samples, otus = otus)
-
-	if(method == "edgeR"){
-		y = edgeR::DGEList(counts = t(wide_table[,2:ncol(wide_table)]), 
-		                   group = metadata %>% select_(group_column) %>% dplyr::pull())
-	} else if(method == "DESeq2") {
-		y = DESeq2::DESeqDataSetFromMatrix(countData = t(wide_table[,2:ncol(wide_table)]), 
-		                                   colData = metadata,
-		                                   design = formula(formula))
-	} else {
-		stop(paste("Wrong method supplied:\nDo not recognize ", method, sep = ""))
-	}
-
-  return(y)
-}
-```
 
 ```{r}
 pois_glm %>% 
@@ -286,18 +262,16 @@ pois_glm %>%
   mutate(direction = ifelse(estimate > 0, "Weed", "Rice")) %>% 
   mutate(term = gsub("host_common_name", "", term)) %>% 
   filter(p.adj <= 0.05) %>% 
-  filter(p.adj <= 0.05) %>% 
   dplyr::count(direction, Compartment, variable) %>% 
   dplyr::add_count(direction, Compartment) %>% 
   filter(n == 3)
 
-intersect_nb_glm <- nb_glm %>% 
+intersect_nb_glm <- nb_glm_plant %>% 
   unnest(map(models, ~tidy(.))) %>% 
   mutate(p.adj = p.adjust(p.value, "fdr")) %>% 
   filter(term != "(Intercept)") %>% 
   mutate(direction = ifelse(estimate > 0, "Weed", "Rice")) %>% 
   mutate(term = gsub("host_common_name", "", term)) %>% 
-  filter(p.adj <= 0.05) %>% 
   filter(p.adj <= 0.05) %>% 
   dplyr::count(direction, Compartment, variable) %>% 
   dplyr::add_count(direction, Compartment) %>% 
@@ -307,7 +281,7 @@ intersect_lm <- lm_plant %>%
   unnest(map(models, ~tidy(.))) %>% 
   mutate(p.adj = p.adjust(p.value, "fdr")) %>% 
   filter(term != "(Intercept)") %>% 
-  mutate(direction = ifelse(estimate > 0, "Weed", "Rice")) %>%filter(variable == "1058954")
+  mutate(direction = ifelse(estimate > 0, "Weed", "Rice")) %>%
   mutate(term = gsub("host_common_name", "", term)) %>% 
   filter(p.adj <= 0.05) %>% 
   dplyr::count(direction, Compartment, variable) %>% 
@@ -331,7 +305,7 @@ intersect_deseq <- DESeq2_plant %>%
 intersect_edger <- edgeR_results %>% 
   group_by(Compartment, taxon) %>% 
   mutate(p.adj = p.adjust(p.value, "fdr")) %>% 
-  filter(p.adj <= 0.1) %>% 
+  filter(p.adj <= 0.01) %>% 
   mutate(direction = ifelse(logFC < 0, "Weed", "Rice")) %>% ungroup() %>% 
   dplyr::count(direction, Compartment, variable) %>% 
   dplyr::add_count(direction, Compartment) %>% 
@@ -342,11 +316,15 @@ intersect_edger <- edgeR_results %>%
 intersect_edger %>% 
   dplyr::count(direction, Compartment, nn)
 
-intersect_edger %>% anti_join(intersect_lm, by = c("variable", "Compartment", "direction"))
-intersect_lm %>% head()
+intersect_edger %>% inner_join(intersect_lm, by = c("variable", "Compartment", "direction")) %>% dplyr::count(Compartment, direction)
+intersect_lm %>% dplyr::count(Compartment, direction, nn)
+intersect_edger %>% dplyr::count(Compartment, direction, nn) %>% mutate(prop = nnn/nn)
 
-
-
+intersects <- intersect(intersect_lm %>% filter(Compartment == "Endosphere" & direction == "Rice") %>% pull(variable),
+                 intersect_edger %>% filter(Compartment == "Endosphere" & direction == "Rice") %>% pull(variable))
+diff <- setdiff(intersect_edger %>% filter(Compartment == "Endosphere" & direction == "Weed") %>% pull(variable),
+        intersect_lm %>% filter(Compartment == "Endosphere" & direction == "Weed") %>% pull(variable))
+        
 dg_tidy <- function(x){
   newt <- x$table
   newt$gene <- row.names(newt)
@@ -357,10 +335,37 @@ dg_tidy <- function(x){
 
 ```
 
+```{r}
+edgeR_results %>%
+  mutate(p.adj = p.adjust(p.value, "fdr")) %>% 
+  filter(p.adj <=0.05) %>% 
+  ggplot(aes(logFC)) +
+  geom_histogram() +
+  facet_grid(Compartment ~ taxon)
+
+edgeR_results %>%
+  mutate(p.adj = p.adjust(p.value, "fdr")) %>% 
+  filter(p.adj <=0.05) %>% 
+  ggplot(aes(logFC)) +
+  geom_histogram() +
+  facet_grid(Compartment ~ taxon)
+
+lm_plant %>%
+  unnest(map(models, ~tidy(.))) %>% 
+  mutate(p.adj = p.adjust(p.value, "fdr")) %>% 
+  filter(p.adj <= 0.05) %>% 
+  filter(term != "(Intercept)") %>% 
+  arrange(abs(estimate))
+  
+  ggplot(aes(estimate)) +
+  geom_histogram() +
+  facet_grid(Compartment ~ term)
+```
 
 
 ```{r}
-DESeq2_plant %>% select(Mudplantain_RS, Sedge_RS, RedStem_RS, Mudplantain_ES, Sedge_ES, RedStem_ES, group_var) %>% 
+DESeq2_plant %>% 
+  select(Mudplantain_RS, Sedge_RS, RedStem_RS, Mudplantain_ES, Sedge_ES, RedStem_ES, group_var) %>% 
   gather(key = taxon, value = results, -group_var) %>% 
   unnest(map(results, ~tidy(.))) %>% 
   separate(taxon, sep = "_", into = c("Taxon", "Compartment")) %>% 
@@ -371,16 +376,53 @@ DESeq2_plant %>% select(Mudplantain_RS, Sedge_RS, RedStem_RS, Mudplantain_ES, Se
     scale_x_log10()
 
 nExp %>% 
-  filter(variable == "109469") %>% 
+  filter(variable == "995662") %>% 
   ggplot(aes(host_common_name, log2((RA * 1000) + 1), color = host_common_name)) +
   geom_jitter(height = 0, width = 0.1) +
   facet_grid(.~Compartment) +
   scale_y_log10()
 
-lm_plant %>% filter(variable == "109469") %>% 
+j<-nExp2 %>% 
+  filter(variable == "995662" & Compartment != "Bulk Soil") %>% 
+  group_by(Compartment, host_common_name, SampleID) %>% 
+  nest() %>% 
+  group_by(Compartment, host_common_name) %>% 
+  sample_n(4) %>% 
+  unnest() %>% ungroup() %>% 
+  mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
+  group_by(Compartment) %>% 
+  nest() %>% 
+  mutate(model = map(data, ~glm.nb(rare_value ~ host_common_name + offset(log2(depth + 1)), .))) %>% 
+  unnest(map(model, ~tidy(.)))
+
+j<-nExp2 %>% 
+  filter(variable == "995662" & Compartment != "Bulk Soil") %>% 
+  group_by(Compartment, host_common_name, SampleID) %>% 
+  nest() %>% 
+  group_by(Compartment, host_common_name) %>% 
+  sample_n(4) %>% 
+  unnest() %>% ungroup() %>% 
+  mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
+  group_by(Compartment) %>% 
+  nest() %>% 
+  mutate(model = map(data, ~lm(log2((RA*1000) + 1) ~ host_common_name, .))) %>% 
+  unnest(map(model, ~tidy(.)))
+
+lm_plant %>% filter(variable == "995662") %>% 
   unnest(map(models, ~tidy(.)))
+
+nExp %>% 
+  filter(variable%in%get("intersects")) %>% 
+  ggplot(aes(host_common_name, log2((RA * 1000) + 1), color = host_common_name)) +
+  geom_jitter(height = 0, width = 0.1) +
+  facet_grid(.~Compartment) +
+  scale_y_log10()
+
+
+DESeq2_plant %>%
+  filter(gene == "3738841")
 edgeR_results %>% 
-  filter(variable == "1113998")
+  filter(variable == "3738841")
 
 nExp %>% 
   filter(Compartment == "Endosphere" & variable == "105600") %>% 
