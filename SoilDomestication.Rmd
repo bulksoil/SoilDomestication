@@ -41,6 +41,40 @@ dPC$axes %>%
 ```
 
 ```{r}
+dom_deseq <- dExp %>% 
+  group_by(variable) %>% 
+  filter(sum(value > 0) / n() > 0.1) %>% 
+  mutate(group = paste(Compartment, From, sep = ".")) %>% 
+  group_by(group_var = "DESeq2", Experiment) %>% 
+  nest() %>% 
+  mutate(DGEL = map(data, ~tidyDGEL(., value = "value", group_column = "group", method = "DESeq2", formula = "~ group"))) %>% 
+  mutate(dds = map(DGEL, ~DESeq(.))) %>% 
+  mutate(BulkSoil = map(dds, ~results(., contrast = c("group", "Bulk Soil.A", "Bulk Soil.N")))) %>% 
+  mutate(Rhizosphere = map(dds, ~results(., contrast = c("group", "Rhizosphere.A", "Rhizosphere.N")))) %>% 
+  mutate(Endosphere = map(dds, ~results(., contrast = c("group", "Endosphere.A", "Endosphere.N")))) %>% 
+  select(BulkSoil, Rhizosphere, Endosphere, Experiment) %>% 
+  gather(key = Compartment, value = results, -Experiment)
 
+dom_deseq %>% 
+  unnest(map(results, ~tidy(.))) %>% 
+  group_by(Experiment, Compartment) %>% 
+  mutate(direction = ifelse(estimate > 0, "A", "N")) %>% 
+  filter(p.adjusted <= 0.05) %>% ungroup() %>% 
+  dplyr::count(direction, Compartment, gene) %>% 
+  filter(n == 2) %>% 
+  dplyr::count(direction, gene) %>% 
+  filter(direction == "A") %>% 
+  dplyr::rename(variable = gene) %>% 
+  inner_join(rice_otus, by = "variable") %>% 
+  inner_join(tax, by = "variable") %>% 
+  dplyr::count(variable)
+```
+```{r}
+dExp %>% 
+  filter(variable == "1080447") %>% 
+  ggplot(aes(paste(Compartment, From, sep = "."), RA)) +
+  geom_point() +
+  facet_grid(.~Experiment) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
 ```
 

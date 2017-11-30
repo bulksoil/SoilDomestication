@@ -231,6 +231,9 @@ intersect_deseq %>% dplyr::count(direction, Compartment, nn)
 
 length(intersect(intersect_deseq %>% filter(Compartment == "Endosphere" & direction == "Rice") %>% pull(variable),
                  intersect_lm %>% filter(Compartment == "Endosphere" & direction == "Rice") %>% pull(variable)))
+
+rice_otus <- intersect_deseq %>% 
+  filter(direction == "Rice")
 ```
 
 
@@ -250,5 +253,11 @@ intersect_deseq %>%
 ```
 
 
+```{r}
+nExp %>% 
+  filter(variable == "1121898") %>% 
+  ggplot(aes(Compartment, log2(RA*1000 + 1), color = host_common_name)) +
+  geom_point(position = position_jitterdodge())
+```
 
 
