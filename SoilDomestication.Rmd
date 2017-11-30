@@ -6,7 +6,6 @@ output: html_notebook
 ```{r}
 library(vegan)
 library(broom)
-library(MASS)
 library(tidyverse)
 library(broom)
 library(biobroom)
@@ -55,7 +54,7 @@ dom_deseq <- dExp %>%
   select(BulkSoil, Rhizosphere, Endosphere, Experiment) %>% 
   gather(key = Compartment, value = results, -Experiment)
 
-dom_deseq %>% 
+dom_otus <- dom_deseq %>% 
   unnest(map(results, ~tidy(.))) %>% 
   group_by(Experiment, Compartment) %>% 
   mutate(direction = ifelse(estimate > 0, "A", "N")) %>% 
@@ -64,17 +63,19 @@ dom_deseq %>%
   filter(n == 2) %>% 
   dplyr::count(direction, gene) %>% 
   filter(direction == "A") %>% 
-  dplyr::rename(variable = gene) %>% 
-  inner_join(rice_otus, by = "variable") %>% 
-  inner_join(tax, by = "variable") %>% 
-  dplyr::count(variable)
+  dplyr::rename(variable = gene)
+
 ```
+
+### What is the overlap of rice enriched microbes with the domesticated microbes?
 ```{r}
-dExp %>% 
-  filter(variable == "1080447") %>% 
-  ggplot(aes(paste(Compartment, From, sep = "."), RA)) +
-  geom_point() +
-  facet_grid(.~Experiment) +
-  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+(nA <- length(unique(rice_otus$variable)))
+(nB <- length(unique(dom_otus$variable)))
+(nC <- length(union(nExp %>% group_by(variable) %>% filter(sum(value > 0) / n() > 0.1) %>% dplyr::count(variable) %>% pull(variable),
+          dExp %>% group_by(variable) %>% filter(sum(value > 0) / n() > 0.1) %>% dplyr::count(variable) %>% pull(variable))))
+(nAB <- length(intersect(dom_otus$variable, rice_otus$variable)))
+
+phyper(nAB, nA, nC-nA, nB, lower.tail = F)
+
 ```
 
