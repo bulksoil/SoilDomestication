@@ -11,6 +11,7 @@ library(tidyverse)
 library(broom)
 library(biobroom)
 library(tidyMB)
+library(RColorBrewer)
 ```
 
 ```{r}
@@ -60,6 +61,7 @@ nExp %>%
 
 ## Phyla Stuff
 ```{r}
+library(MASS)
 phyla_abund <- nExp %>% 
   inner_join(tax, by = "variable") %>% 
   group_by(SampleID, Compartment, host_common_name, Phylum2, depth) %>% 
@@ -70,6 +72,31 @@ phyla_abund <- nExp %>%
          beta = fitdistr(prop, dbeta, start = list(shape1 = 1, shape2 = 10))$estimate[2]) %>% 
   mutate(emp_estimate = (phy_total + alpha + 1) / (depth + 1 + alpha + beta))
 
+phyla_abund %>% 
+  group_by(Phylum2) %>% 
+  nest() %>% 
+  mutate(total = map_dbl(data, ~sum(.x$prop))) %>% 
+  top_n(15, total) %>% 
+  unnest(data) %>% 
+  mutate(Compartment = fct_relevel(Compartment, "Bulk Soil", "Rhizosphere", "Endosphere")) %>% 
+  group_by(Compartment, host_common_name, SampleID) %>% 
+  nest() %>% 
+  group_by(Compartment) %>% 
+  arrange(host_common_name) %>% 
+  mutate(order = 1:n()) %>% 
+  unnest() %>% 
+  ggplot(aes(order, prop * 100, fill = Phylum2)) +
+  geom_bar(stat = "identity") +
+  geom_point(aes(x = order, y = -2, color = host_common_name)) +
+  facet_grid(.~Compartment, scales = "free_x") +
+  scale_fill_manual(values = c(brewer.pal(11, "RdGy"),brewer.pal(5, "Blues")[-1])) +
+  scale_color_brewer(palette = "Set1", direction = -1) +
+  labs(x = "", y = "Percent of Reads") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), legend.position = "bottom")
+```
+
+```{r}
 phy_host_lm <- phyla_abund %>% 
   group_by(Compartment, Phylum2) %>% 
   filter(host_common_name != "Soil") %>% 
@@ -130,28 +157,7 @@ phy_host_lm %>%
   scale_fill_gradient2(low = "gold", high = "dodgerblue", mid = 'black') +
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
   
-phyla_abund %>% 
-  group_by(Phylum2) %>% 
-  nest() %>% 
-  mutate(total = map_dbl(data, ~sum(.x$prop))) %>% 
-  top_n(15, total) %>% 
-  unnest(data) %>% 
-  mutate(Compartment = fct_relevel(Compartment, "Bulk Soil", "Rhizosphere", "Endosphere")) %>% 
-  group_by(Compartment, host_common_name, SampleID) %>% 
-  nest() %>% 
-  group_by(Compartment) %>% 
-  arrange(host_common_name) %>% 
-  mutate(order = 1:n()) %>% 
-  unnest() %>% 
-  ggplot(aes(order, prop * 100, fill = Phylum2)) +
-  geom_bar(stat = "identity") +
-  geom_point(aes(x = order, y = -2, color = host_common_name)) +
-  facet_grid(.~Compartment, scales = "free_x") +
-  scale_fill_manual(values = c(brewer.pal(11, "RdGy"),brewer.pal(5, "Blues")[-1])) +
-  scale_color_brewer(palette = "Set1", direction = -1) +
-  labs(x = "", y = "Percent of Reads") +
-  theme_minimal() +
-  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), legend.position = "bottom")
+
 ```
 
 
@@ -189,15 +195,46 @@ DESeq2_plant <- nExp %>%
   mutate(dds = map(DGEL, ~DESeq(.))) %>% 
   mutate(Sedge_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Sedge")))) %>% 
   mutate(Mudplantain_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Mudplantain")))) %>% 
-  mutate(RedStem_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Redstem")))) %>% 
+  mutate(Redstem_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Redstem")))) %>% 
   mutate(Sedge_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Sedge")))) %>% 
   mutate(Mudplantain_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Mudplantain")))) %>% 
   mutate(Redstem_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Redstem")))) %>% 
-  select(Mudplantain_RS, Sedge_RS, RedStem_RS, Mudplantain_ES, Sedge_ES, Redstem_ES, group_var) %>% 
+  dplyr::select(Mudplantain_RS, Sedge_RS, Redstem_RS, Mudplantain_ES, Sedge_ES, Redstem_ES, group_var) %>% 
   gather(key = taxon, value = results, -group_var)
 
 saveRDS(DESeq2_plant, file = "~/RMB/SoilDomestication/Data/weeds_deseq.rds")
 ```
+
+```{r}
+DESeq2_plant <- read_rds("~/RMB/SoilDomestication/Data/weeds_deseq.rds")
+DESeq2_plant %>% 
+  unnest(map(results, ~tidy(.))) %>% 
+  separate(taxon, sep = "_", into = c("Taxon", "Compartment")) %>% 
+  mutate(direction = ifelse(estimate < 0, "Weed", "Rice")) %>% 
+  mutate(p.adjusted = ifelse(is.na(p.adjusted), 1, p.adjusted)) %>% 
+  mutate(sig = ifelse(p.adjusted <= 0.05, "sig", "ns")) %>% 
+  mutate(sig_direction = ifelse(p.adjusted <= 0.05, direction, NA)) %>% 
+  mutate(color = ifelse(sig_direction == "Rice", "Rice", Taxon)) %>% 
+  mutate(color = ifelse(is.na(color), "ns", color)) %>% 
+  dplyr::add_count(Compartment, sig_direction, gene) %>% 
+  mutate(cons = ifelse(p.adjusted <= 0.05 & n == 3, "cons", "nc")) %>% 
+  filter(abs(estimate) < 20) %>% 
+  mutate(Compartment = fct_recode(factor(Compartment, levels = c("RS", "ES")),
+                                  "Rhizosphere" = "RS",
+                                  "Endosphere" = "ES")) %>% 
+  ggplot(aes(baseMean, estimate, color = color, alpha = sig, shape = cons)) +
+  geom_point() +
+  facet_grid(Compartment ~ Taxon, scales = "free_y") +
+  scale_x_log10() +
+  scale_shape_manual(values = c(16, 1)) +
+  scale_alpha_manual(values = c(0.05, 0.8)) +
+  scale_color_manual(values = c("#FF7F00", "black", "#984EA3", "#4DAF4A", "#377EB8")) +
+  theme_minimal()
+```
+```{r}
+brewer.pal(5, "Set1")
+```
+
 ```{r}
 intersect_lm <- lm_plant %>% 
   unnest(map(models, ~tidy(.))) %>% 

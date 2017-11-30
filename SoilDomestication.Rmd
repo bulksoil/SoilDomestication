@@ -15,6 +15,7 @@ library(tidyverse)
 library(broom)
 library(biobroom)
 library(tidyMB)
+library(DESeq2)
 ```
 
 ## Load in the data
@@ -64,6 +65,12 @@ dom_deseq <- dExp %>%
   select(BulkSoil, Rhizosphere, Endosphere, Experiment) %>% 
   gather(key = Compartment, value = results, -Experiment)
 
+dom_deseq %>% 
+  ungroup() %>% 
+  write_rds(path = "~/RMB/SoilDomestication/Data/domestication_deseq.rds")
+```
+
+```{r}
 dom_otus <- dom_deseq %>% 
   unnest(map(results, ~tidy(.))) %>% 
   group_by(Experiment, Compartment) %>% 
@@ -74,6 +81,21 @@ dom_otus <- dom_deseq %>%
   dplyr::count(direction, gene) %>% 
   filter(direction == "A") %>% 
   dplyr::rename(variable = gene)
+
+weeds_deseq <- read_rds("~/RMB/SoilDomestication/Data/weeds_deseq.rds")
+rice_otus <- weeds_deseq %>% 
+  unnest(map(results, ~tidy(.))) %>% 
+  separate(taxon, sep = "_", into = c("Taxon", "Compartment")) %>% 
+  mutate(direction = ifelse(estimate < 0, "Weed", "Rice")) %>% 
+  filter(p.adjusted <= 0.05) %>% 
+  dplyr::count(direction, Compartment, gene) %>% 
+  dplyr::add_count(direction, Compartment) %>% 
+  filter(n == 3) %>% 
+  mutate(Compartment = gsub("ES", "Endosphere", Compartment),
+         Compartment = gsub("RS", "Rhizosphere", Compartment)) %>% 
+  dplyr::rename(variable = gene) %>% 
+  filter(direction == "Rice")
+  
 ```
 
 ### What is the overlap of rice enriched microbes with the domesticated microbes?
