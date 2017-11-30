@@ -1,8 +1,13 @@
 ---
 title: "Soil Domestication"
 output: html_notebook
+author: "Joe Edwards"
 ---
+## Introductions
+Here in this experiment, we have grown rice plants in  soils from rice fields and from locations that are adjacent to rice fields, but are not growing crops. The goal was to see if there are consistent differences between the microbiomes that rice plants assemble from these soils.
 
+## Load in the libraries
+Note that this analysis relies on the tidyMB package. This can be found on my github profile.
 ```{r}
 library(vegan)
 library(broom)
@@ -12,6 +17,8 @@ library(biobroom)
 library(tidyMB)
 ```
 
+## Load in the data
+The portion that is commented out was when I was originally loading in the data as a subset of a much larger dataset. The wExp object was too big for me to post on github, so I trimmed it down. Please note that if you are running this analysis on your computer, you will need to change the PATHs to reflect where you have clones this github repo to.
 ```{r}
 ## Do Not Run
 #wExp <- read_rds("~/Google Drive/RMB/Analyses/WEEDS/Manuscript/wExp.rds")
@@ -26,9 +33,10 @@ dExp <- readRDS("~/RMB/SoilDomestication/Data/dom_data.rds")
 tax <- readRDS("~/RMB/SoilDomestication/Data/gg_otus_tax.rds")
 ```
 
-
+## Betadiversity
+First things first. What is the underlying structure of the data?
 ```{r}
-dPC <- tidy_pcoa(dExp %>% mutate(RA = RA*1000), dist = "bray", value = "RA", keep_loadings = T)
+dPC <- tidy_pcoa(dExp %>% mutate(RA = RA*1000), dist = "bray", value = "RA", keep_loadings = F)
 
 dPC$axes %>% 
   ggplot(aes(MDS1, MDS2, color = From, shape = Experiment)) +
@@ -39,6 +47,8 @@ dPC$axes %>%
   labs(x = paste("PCo1 (", round(nPC$eigen_vals[1] * 100, 2), "%)", sep = ""), y = paste("PCo2 (", round(nPC$eigen_vals[2] * 100, 2), "%)", sep = ""))
 ```
 
+## Differentially abundant OTUs
+We see relatively large differences between "domesticated" and "wild" soils. Let's find the OTUs that explain these differences.
 ```{r}
 dom_deseq <- dExp %>% 
   group_by(variable) %>% 
@@ -46,8 +56,8 @@ dom_deseq <- dExp %>%
   mutate(group = paste(Compartment, From, sep = ".")) %>% 
   group_by(group_var = "DESeq2", Experiment) %>% 
   nest() %>% 
-  mutate(DGEL = map(data, ~tidyDGEL(., value = "value", group_column = "group", method = "DESeq2", formula = "~ group"))) %>% 
-  mutate(dds = map(DGEL, ~DESeq(.))) %>% 
+  mutate(DGEL = map(data, ~suppressMessages(tidyDGEL(., value = "value", group_column = "group", method = "DESeq2", formula = "~ group")))) %>% 
+  mutate(dds = map(DGEL, ~suppressMessages(DESeq(.)))) %>% 
   mutate(BulkSoil = map(dds, ~results(., contrast = c("group", "Bulk Soil.A", "Bulk Soil.N")))) %>% 
   mutate(Rhizosphere = map(dds, ~results(., contrast = c("group", "Rhizosphere.A", "Rhizosphere.N")))) %>% 
   mutate(Endosphere = map(dds, ~results(., contrast = c("group", "Endosphere.A", "Endosphere.N")))) %>% 
@@ -64,18 +74,22 @@ dom_otus <- dom_deseq %>%
   dplyr::count(direction, gene) %>% 
   filter(direction == "A") %>% 
   dplyr::rename(variable = gene)
-
 ```
 
 ### What is the overlap of rice enriched microbes with the domesticated microbes?
 ```{r}
-(nA <- length(unique(rice_otus$variable)))
-(nB <- length(unique(dom_otus$variable)))
-(nC <- length(union(nExp %>% group_by(variable) %>% filter(sum(value > 0) / n() > 0.1) %>% dplyr::count(variable) %>% pull(variable),
-          dExp %>% group_by(variable) %>% filter(sum(value > 0) / n() > 0.1) %>% dplyr::count(variable) %>% pull(variable))))
-(nAB <- length(intersect(dom_otus$variable, rice_otus$variable)))
+nA <- length(unique(rice_otus$variable))
+nB <- length(unique(dom_otus$variable))
+nC <- length(union(nExp %>% group_by(variable) %>% filter(sum(value) > 0) %>% dplyr::count(variable) %>% pull(variable),
+          dExp %>% group_by(variable) %>% filter(sum(value) > 0) %>% dplyr::count(variable) %>% pull(variable)))
+nAB <- length(intersect(dom_otus$variable, rice_otus$variable))
 
-phyper(nAB, nA, nC-nA, nB, lower.tail = F)
+prob <- phyper(nAB, nB, nC-nB, nA, lower.tail = F)
+```
+There are `r nA` rice enriched microbes (compared to the weeds) and `r nB` OTUs that are enriched at least in one compartment of the plants growing in domesticated soils. Between the rice vs. weeds dataset and the soil domestication dataset, there are `r nC` OTUs. There are `r nAB` OTUs shared between the rice enriched and domesticated microbes. What is the probability that we whitness and overlap of `r nAB` OTUs given these parameters? We can treat this like the trusty old "black and white balls in an urn" analogy. If we have an urn filled with `r nC`, and `r nB` of these balls are black and the rest are white, what is the probability that if we draw `r nA` balls from the urn that `r nAB` of the balls will be black? We can use the hypergeometric function to figure out. After doing this calculation, we find that the probability of having an overlap of `r nAB` between the datasets is `r prob`.
+
+```{r}
 
 ```
+
 
