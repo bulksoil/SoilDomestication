@@ -168,8 +168,6 @@ nExp2 <- nExp %>%
   mutate(rare = map(data, ~raref(., sampling_depth = 14000, value = "value"))) %>% 
   unnest(rare)
 
-
-
 lm_plant <- nExp %>% 
   filter(Compartment != "Bulk Soil") %>% 
   group_by(variable) %>% 
@@ -178,7 +176,6 @@ lm_plant <- nExp %>%
   group_by(variable, Compartment) %>% 
   nest() %>%
   mutate(models = map(data, ~lm(log2((RA * 1000) + 1) ~ host_common_name, .)))
-
 
 DESeq2_plant <- nExp %>% 
   filter(Compartment != "Bulk Soil") %>% 
@@ -196,9 +193,10 @@ DESeq2_plant <- nExp %>%
   mutate(Sedge_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Sedge")))) %>% 
   mutate(Mudplantain_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Mudplantain")))) %>% 
   mutate(Redstem_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Redstem")))) %>% 
-  select(Mudplantain_RS, Sedge_RS, RedStem_RS, Mudplantain_ES, Sedge_ES, Redstem_ES, group_var) 
+  select(Mudplantain_RS, Sedge_RS, RedStem_RS, Mudplantain_ES, Sedge_ES, Redstem_ES, group_var) %>% 
+  gather(key = taxon, value = results, -group_var)
 
-
+saveRDS(DESeq2_plant, file = "~/RMB/SoilDomestication/Data/weeds_deseq.rds")
 ```
 ```{r}
 intersect_lm <- lm_plant %>% 
@@ -213,8 +211,6 @@ intersect_lm <- lm_plant %>%
   filter(n == 3)
 
 intersect_deseq <- DESeq2_plant %>% 
-  select(Mudplantain_RS, Sedge_RS, RedStem_RS, Mudplantain_ES, Sedge_ES, Redstem_ES, group_var) %>% 
-  gather(key = taxon, value = results, -group_var) %>% 
   unnest(map(results, ~tidy(.))) %>% 
   separate(taxon, sep = "_", into = c("Taxon", "Compartment")) %>% 
   mutate(direction = ifelse(estimate < 0, "Weed", "Rice")) %>% 
