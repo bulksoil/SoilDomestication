@@ -235,7 +235,18 @@ length(intersect(intersect_deseq %>% filter(Compartment == "Endosphere" & direct
 
 
 ```{r}
-intersect_deseq %>% filter()
+intersect_deseq %>% 
+  inner_join(tax, by = "variable") %>% 
+  dplyr::count(Compartment, direction, Phylum2) %>% 
+  mutate(nnn2 = ifelse(direction == "Rice", nnn, -nnn)) %>% 
+  group_by(Phylum2, Compartment) %>% 
+  mutate(order_thing = sum(nnn)) %>% 
+  ggplot(aes(fct_reorder(Phylum2, -order_thing), nnn2)) +
+  geom_bar(stat = "identity") +
+  geom_hline(yintercept = 0, color = "white") +
+  facet_grid(. ~ Compartment) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
 ```
 
 

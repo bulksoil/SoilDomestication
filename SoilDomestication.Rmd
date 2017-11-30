@@ -15,12 +15,32 @@ library(tidyMB)
 
 ```{r}
 ## Do Not Run
-#wExp <- readRDS("~/RMB/SoilDomestication/Data/wExp.rds")
-#dExp <- wExp %>% 
-#  filter(Site == "Arkansas") %>% 
+#wExp <- read_rds("~/Google Drive/RMB/Analyses/WEEDS/Manuscript/wExp.rds")
+#wExp %>% 
+#  filter(Experiment == "Mix" | Experiment == "Transplant") %>% 
 #  ungroup() %>% 
-#  saveRDS("~/RMB/SoilDomestication/Data/native_plants_data.rds")
+#  group_by(variable) %>% 
+#  filter(sum(value) > 0) %>% 
+#  saveRDS("~/RMB/SoilDomestication/Data/dom_data.rds")
 
-dExp <- readRDS("~/RMB/SoilDomestication/Data/native_plants_data.rds")
+dExp <- readRDS("~/RMB/SoilDomestication/Data/dom_data.rds")
 tax <- readRDS("~/RMB/SoilDomestication/Data/gg_otus_tax.rds")
 ```
+
+
+```{r}
+dPC <- tidy_pcoa(dExp %>% mutate(RA = RA*1000), dist = "bray", value = "RA", keep_loadings = T)
+
+dPC$axes %>% 
+  ggplot(aes(MDS1, MDS2, color = From, shape = Experiment)) +
+  geom_point(size = 3, alpha = 0.7) +
+  stat_ellipse(aes(group = Compartment), color = "black") +
+  scale_color_manual(values = c("dodgerblue", "gold")) +
+  theme_minimal() +
+  labs(x = paste("PCo1 (", round(nPC$eigen_vals[1] * 100, 2), "%)", sep = ""), y = paste("PCo2 (", round(nPC$eigen_vals[2] * 100, 2), "%)", sep = ""))
+```
+
+```{r}
+
+```
+
