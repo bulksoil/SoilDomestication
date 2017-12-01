@@ -52,7 +52,25 @@ nPC$axes %>%
 
 ```{r}
 long_adonis(nExp %>% mutate(RA2 = log2((RA*1000) + 1)), value = "RA2", formula = "Compartment * host_common_name") %>% tidy()
+```
 
+From the above PERMANOVA, host species does have a strong affect on the microbiome, but looking at the PCoA it is not clear whether the genotypic effect exists only because rice is so weird compared to the other plants.
+```{r}
+library(ape)
+species_colors <- data.frame(host_common_name = c("Soil", "Rice", "Sedge", "Redstem", "Mudplantain"),
+                             colorz = as.character(c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00")),
+                             colorz2 = c("firebrick2", "palegreen4", "steelblue", "orchid4", "darkorange1"))
+nDist <- tidyMB::wide_distance(nExp %>% mutate(RA2 = log2(RA* 1000 + 1)), value = "RA2")
+nMD <- grab_metadata(nExp)
+nHCL <- hclust(nDist, method = "average")
+nMD <- nMD[match(nHCL$labels, nMD$SampleID),] %>% 
+  inner_join(species_colors, by = "host_common_name")
+nHCL$labels <- nMD$Compartment
+
+plot(as.phylo(nHCL), lwd=2, tip.color = as.character(nMD$colorz2), use.edge.length = FALSE)
+```
+
+```{r}
 nExp %>% 
   mutate(RA2 = log2((RA*1000) + 1)) %>% 
   group_by(Compartment) %>% 
