@@ -3,7 +3,7 @@ title: "Data Load and Clean"
 output: html_notebook
 ---
   
-  ```{r}
+```{r}
 library(tidyverse)
 ```
 

@@ -45,10 +45,14 @@ nPC$axes %>%
   stat_ellipse(aes(group = Compartment), color = "black") +
   scale_color_brewer(palette = "Set1", direction = -1) +
   theme_minimal() +
-  labs(x = paste("PCo1 (", round(nPC$eigen_vals[1] * 100, 2), "%)", sep = ""), y = paste("PCo2 (", round(nPC$eigen_vals[2] * 100, 2), "%)", sep = ""))
+  labs(x = paste("PCo1 (", round(nPC$eigen_vals[1] * 100, 2), "%)", sep = ""), 
+       y = paste("PCo2 (", round(nPC$eigen_vals[2] * 100, 2), "%)", sep = "")) +
+  theme(text = element_text(size = 12))
 ```
+
 ```{r}
-long_adonis(nExp %>% mutate(RA2 = log2((RA*1000) + 1)), value = "RA2", formula = "Compartment * host_common_name")
+long_adonis(nExp %>% mutate(RA2 = log2((RA*1000) + 1)), value = "RA2", formula = "Compartment * host_common_name") %>% tidy()
+
 nExp %>% 
   mutate(RA2 = log2((RA*1000) + 1)) %>% 
   group_by(Compartment) %>% 
@@ -86,14 +90,17 @@ phyla_abund %>%
   mutate(order = 1:n()) %>% 
   unnest() %>% 
   ggplot(aes(order, prop * 100, fill = Phylum2)) +
-  geom_bar(stat = "identity") +
-  geom_point(aes(x = order, y = -2, color = host_common_name)) +
+  geom_bar(stat = "identity", width = 1) +
+  geom_point(aes(x = order, y = -2, color = host_common_name), shape = 15) +
   facet_grid(.~Compartment, scales = "free_x") +
   scale_fill_manual(values = c(brewer.pal(11, "RdGy"),brewer.pal(5, "Blues")[-1])) +
   scale_color_brewer(palette = "Set1", direction = -1) +
   labs(x = "", y = "Percent of Reads") +
   theme_minimal() +
-  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), legend.position = "bottom")
+  theme(axis.text.x = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        legend.position = "bottom",
+        text = element_text(size = 12))
 ```
 
 ```{r}
@@ -161,7 +168,7 @@ phy_host_lm %>%
 ```
 
 
-## Differential Abundance
+## Differential OTU Abundance
 ```{r}
 DESeq2_plant <- nExp %>% 
   filter(Compartment != "Bulk Soil") %>% 
@@ -187,6 +194,7 @@ saveRDS(DESeq2_plant, file = "~/RMB/SoilDomestication/Data/weeds_deseq.rds")
 
 ```{r}
 DESeq2_plant <- read_rds("~/RMB/SoilDomestication/Data/weeds_deseq.rds")
+
 DESeq2_plant %>% 
   unnest(map(results, ~tidy(.))) %>% 
   separate(taxon, sep = "_", into = c("Taxon", "Compartment")) %>% 
@@ -224,10 +232,7 @@ intersect_deseq <- DESeq2_plant %>%
   mutate(Compartment = gsub("ES", "Endosphere", Compartment),
          Compartment = gsub("RS", "Rhizosphere", Compartment)) %>% 
   dplyr::rename(variable = gene)
-```
 
-
-```{r}
 intersect_deseq %>% 
   inner_join(tax, by = "variable") %>% 
   dplyr::count(Compartment, direction, Phylum2) %>% 
