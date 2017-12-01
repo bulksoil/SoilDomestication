@@ -163,26 +163,6 @@ phy_host_lm %>%
 
 ## Differential Abundance
 ```{r}
-safe_glm <- possibly(glm, NA_real_)
-safe_glm.nb <- possibly(glm.nb, NA_real_)
-
-nExp2 <- nExp %>% 
-  ungroup() %>% 
-  mutate(variable = factor(variable)) %>% 
-  group_by(SampleID) %>% 
-  nest() %>% 
-  mutate(rare = map(data, ~raref(., sampling_depth = 14000, value = "value"))) %>% 
-  unnest(rare)
-
-lm_plant <- nExp %>% 
-  filter(Compartment != "Bulk Soil") %>% 
-  group_by(variable) %>% 
-  filter(sum(value > 0) / n() > 0.1) %>% 
-  mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
-  group_by(variable, Compartment) %>% 
-  nest() %>%
-  mutate(models = map(data, ~lm(log2((RA * 1000) + 1) ~ host_common_name, .)))
-
 DESeq2_plant <- nExp %>% 
   filter(Compartment != "Bulk Soil") %>% 
   group_by(variable) %>% 
@@ -223,30 +203,16 @@ DESeq2_plant %>%
                                   "Rhizosphere" = "RS",
                                   "Endosphere" = "ES")) %>% 
   ggplot(aes(baseMean, estimate, color = color, alpha = sig, shape = cons)) +
-  geom_point() +
+  geom_point(size = 1) +
   facet_grid(Compartment ~ Taxon, scales = "free_y") +
   scale_x_log10() +
   scale_shape_manual(values = c(16, 1)) +
-  scale_alpha_manual(values = c(0.05, 0.8)) +
+  scale_alpha_manual(values = c(0.05, 0.5)) +
   scale_color_manual(values = c("#FF7F00", "black", "#984EA3", "#4DAF4A", "#377EB8")) +
   theme_minimal()
 ```
-```{r}
-brewer.pal(5, "Set1")
-```
 
 ```{r}
-intersect_lm <- lm_plant %>% 
-  unnest(map(models, ~tidy(.))) %>% 
-  mutate(p.adj = p.adjust(p.value, "fdr")) %>% 
-  filter(term != "(Intercept)") %>% 
-  mutate(direction = ifelse(estimate > 0, "Weed", "Rice")) %>%
-  mutate(term = gsub("host_common_name", "", term)) %>% 
-  filter(p.adj <= 0.05) %>% 
-  dplyr::count(direction, Compartment, variable) %>% 
-  dplyr::add_count(direction, Compartment) %>% 
-  filter(n == 3)
-
 intersect_deseq <- DESeq2_plant %>% 
   unnest(map(results, ~tidy(.))) %>% 
   separate(taxon, sep = "_", into = c("Taxon", "Compartment")) %>% 
@@ -258,15 +224,6 @@ intersect_deseq <- DESeq2_plant %>%
   mutate(Compartment = gsub("ES", "Endosphere", Compartment),
          Compartment = gsub("RS", "Rhizosphere", Compartment)) %>% 
   dplyr::rename(variable = gene)
-
-intersect_lm %>% dplyr::count(Compartment, direction, nn)
-intersect_deseq %>% dplyr::count(direction, Compartment, nn)
-
-length(intersect(intersect_deseq %>% filter(Compartment == "Endosphere" & direction == "Rice") %>% pull(variable),
-                 intersect_lm %>% filter(Compartment == "Endosphere" & direction == "Rice") %>% pull(variable)))
-
-rice_otus <- intersect_deseq %>% 
-  filter(direction == "Rice")
 ```
 
 
@@ -285,12 +242,36 @@ intersect_deseq %>%
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
 ```
 
-
+## Comparisons to bulk soil
+Looking at the above PCoA, the communities in the rice rhizosphere appear to be remarkably similar to bulk soil. Let's go more into depth and ask whether this is statistically true.
 ```{r}
-nExp %>% 
-  filter(variable == "1121898") %>% 
-  ggplot(aes(Compartment, log2(RA*1000 + 1), color = host_common_name)) +
-  geom_point(position = position_jitterdodge())
+bs_dists <- tidyMB::long_distance(nExp) %>% 
+  filter(Compartment.x == "Bulk Soil" | Compartment.y == "Bulk Soil") %>% 
+  rowwise() %>% 
+  mutate(bs_column = min(c(Compartment.x, Compartment.y))) %>% 
+  mutate(compartment_column = max(c(Compartment.x, Compartment.y))) %>% 
+  mutate(taxon_name = min(c(host_common_name.x, host_common_name.y))) %>% 
+  ungroup() %>% 
+  mutate(taxon_name = fct_relevel(factor(taxon_name), "Rice", "Mudplantain", "Redstem", "Sedge", "Soil")) %>% 
+  mutate(compartment_column = fct_relevel(factor(compartment_column), "Bulk Soil", "Rhizosphere", "Endosphere"))
+
+bs_dists %>% 
+  ggplot(aes(compartment_column, value, color = taxon_name)) +
+  geom_point(position = position_jitterdodge(jitter.width = 0.3), alpha = 0.8) + 
+  scale_color_manual(values = c("#4DAF4A", "#FF7F00", "#984EA3", "#377EB8", "#E41A1C")) +
+  theme_minimal() +
+  labs(x = "", y = "Bray Dissimilarity") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1), text = element_text(size = 12))
 ```
+It looks like rice has a reduced dissimilarity to bulk soil compared to the other plant species. Let's check whether this is significant
+```{r}
+bs_dists %>% 
+  filter(compartment_column == "Rhizosphere") %>% 
+  mutate(taxon_name = relevel(taxon_name, ref = "Rice")) %>% 
+  aov(value ~ taxon_name, .) %>% 
+  TukeyHSD(.) %>% 
+  tidy(.)
+```
+From this ANOVA result, it looks like rice rhizosphere microbiomes are significantly more similar to the bulk soil microbiome than the other plant species.
 
 
