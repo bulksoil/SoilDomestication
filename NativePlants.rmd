@@ -215,8 +215,8 @@ DESeq2_plant %>%
   facet_grid(Compartment ~ Taxon, scales = "free_y") +
   scale_x_log10() +
   scale_shape_manual(values = c(16, 1)) +
-  scale_alpha_manual(values = c(0.05, 0.5)) +
-  scale_color_manual(values = c("#FF7F00", "black", "#984EA3", "#4DAF4A", "#377EB8")) +
+  scale_alpha_manual(values = c(0.1, 0.7)) +
+  scale_color_manual(values = c("#FF7F00", "grey20", "#984EA3", "#4DAF4A", "#377EB8")) +
   theme_minimal()
 ```
 
