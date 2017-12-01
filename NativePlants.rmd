@@ -248,6 +248,39 @@ DESeq2_plant %>%
   theme_minimal()
 ```
 
+Why do this analysis? From our data so far, it appears that rice is an outlier. There must be OTUs that set it apart from the other plants. There are likely OTUs that are commonly enriched in rice compared to the other plants and OTUs that are commonly enriched in the other plants compared to rice. Let's go ahead and make some venn diagrams to figure this out.
+```{r}
+library(VennDiagram)
+
+deseq_results <- DESeq2_plant %>% 
+  unnest(map(results, ~tidy(.))) %>% 
+  separate(taxon, sep = "_", into = c("Taxon", "Compartment")) %>% 
+  mutate(direction = ifelse(estimate < 0, "Weed", "Rice")) %>% 
+  filter(p.adjusted <= 0.05) %>% 
+  mutate(Compartment = gsub("ES", "Endosphere", Compartment),
+         Compartment = gsub("RS", "Rhizosphere", Compartment)) %>% 
+  dplyr::rename(variable = gene)
+
+es_venn_rice <- list(Mudplantain = deseq_results %>% filter(Compartment == "Endosphere" & direction == "Rice" & Taxon == "Mudplantain") %>% pull(variable),
+                     Sedge = deseq_results %>% filter(Compartment == "Endosphere" & direction == "Rice" & Taxon == "Sedge") %>% pull(variable),
+                     Redstem = deseq_results %>% filter(Compartment == "Endosphere" & direction == "Rice" & Taxon == "Redstem") %>% pull(variable))
+rs_venn_rice <- list(Mudplantain = deseq_results %>% filter(Compartment == "Rhizosphere" & direction == "Rice" & Taxon == "Mudplantain") %>% pull(variable),
+                     Sedge = deseq_results %>% filter(Compartment == "Rhizosphere" & direction == "Rice" & Taxon == "Sedge") %>% pull(variable),
+                     Redstem = deseq_results %>% filter(Compartment == "Rhizosphere" & direction == "Rice" & Taxon == "Redstem") %>% pull(variable))
+es_venn_weed <- list(Mudplantain = deseq_results %>% filter(Compartment == "Endosphere" & direction == "Weed" & Taxon == "Mudplantain") %>% pull(variable),
+                     Sedge = deseq_results %>% filter(Compartment == "Endosphere" & direction == "Weed" & Taxon == "Sedge") %>% pull(variable),
+                     Redstem = deseq_results %>% filter(Compartment == "Endosphere" & direction == "Weed" & Taxon == "Redstem") %>% pull(variable))
+rs_venn_weed <- list(Mudplantain = deseq_results %>% filter(Compartment == "Rhizosphere" & direction == "Weed" & Taxon == "Mudplantain") %>% pull(variable),
+                     Sedge = deseq_results %>% filter(Compartment == "Rhizosphere" & direction == "Weed" & Taxon == "Sedge") %>% pull(variable),
+                     Redstem = deseq_results %>% filter(Compartment == "Rhizosphere" & direction == "Weed" & Taxon == "Redstem") %>% pull(variable))
+
+venn.diagram(es_venn_rice, filename = "r_es_venn.svg", imagetype = "svg", height = 2, width = 2, euler.d = T, fill = c("darkorange1", "steelblue", "orchid4"), alpha = rep(0.3, 3), lwd = 0, category.names=c("", "", ""))
+venn.diagram(rs_venn_rice, filename = "r_rs_venn.svg", imagetype = "svg", height = 2, width = 2, euler.d = T, fill = c("darkorange1", "steelblue", "orchid4"), alpha = rep(0.3, 3), lwd = 0, category.names=c("", "", ""))
+venn.diagram(es_venn_weed, filename = "w_es_venn.svg", imagetype = "svg", height = 2, width = 2, euler.d = T, fill = c("darkorange1", "steelblue", "orchid4"), alpha = rep(0.3, 3), lwd = 0, category.names=c("", "", ""))
+venn.diagram(rs_venn_weed, filename = "w_rs_venn.svg", imagetype = "svg", height = 2, width = 2, euler.d = T, fill = c("darkorange1", "steelblue", "orchid4"), alpha = rep(0.3, 3), lwd = 0, category.names=c("", "", ""))
+```
+
+
 ```{r}
 intersect_deseq <- DESeq2_plant %>% 
   unnest(map(results, ~tidy(.))) %>% 
@@ -267,12 +300,33 @@ intersect_deseq %>%
   mutate(nnn2 = ifelse(direction == "Rice", nnn, -nnn)) %>% 
   group_by(Phylum2, Compartment) %>% 
   mutate(order_thing = sum(nnn)) %>% 
+  filter(nnn > 1) %>% 
   ggplot(aes(fct_reorder(Phylum2, -order_thing), nnn2)) +
   geom_bar(stat = "identity") +
   geom_hline(yintercept = 0, color = "white") +
   facet_grid(. ~ Compartment) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
+
+intersect_deseq %>% 
+  inner_join(tax, by = "variable") %>% 
+  dplyr::count(Compartment, direction, Phylum2) %>% 
+  mutate(Compartment  = fct_relevel(factor(Compartment), "Rhizosphere", "Endosphere")) %>% 
+  group_by(Compartment, direction) %>% 
+  arrange(nnn) %>% 
+  mutate(order = 1:n()) %>% 
+  filter(nnn > 2) %>% 
+  mutate(location = ifelse(nnn >= 22, nnn-10, nnn+0.5)) %>% 
+  mutate(color = ifelse(nnn >= 22, "white", "black")) %>% 
+  ggplot(aes(order, nnn, lable = "Phylum2")) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(x = order, y = location, label = Phylum2, color = color), hjust = 0, size = 3.5) +
+  scale_color_manual(values = c("black", "white")) +
+  facet_wrap( ~ Compartment + direction, scales = "free") +
+  theme_minimal() +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), legend.position = "none") +
+  coord_flip() +
+  ylim(0, 35)
 ```
 
 ## Comparisons to bulk soil
