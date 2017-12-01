@@ -69,6 +69,16 @@ nHCL$labels <- nMD$Compartment
 
 plot(as.phylo(nHCL), lwd=2, tip.color = as.character(nMD$colorz2), use.edge.length = FALSE)
 ```
+The tree makes it appear that there is significant clustering of the different species. Let's insepct this using a statistical approach. I will run a permanova on each compartment (excluding the bulk soil) after removing the rice samples.
+```{r}
+nExp %>% 
+  filter(Compartment != "Bulk Soil" & host_common_name != "Rice") %>% 
+  group_by(Compartment) %>% 
+  mutate(RA2 = log2(RA*1000 + 1)) %>% 
+  nest() %>% 
+  mutate(permanova = map(data, ~long_adonis(., value = "RA2", formula = "host_common_name"))) %>% 
+  unnest(map(permanova, ~tidy(.)))
+```
 
 ```{r}
 nExp %>% 
@@ -79,7 +89,7 @@ nExp %>%
   mutate(ad = map(data, ~long_adonis(., value = "RA2", formula = "host_common_name"))) %>% 
   unnest(map(ad, ~tidy(.)))
 ```
-
+Here we have the permanova results for how host species affects the microbiome within each compartment. The top table shows the results when rice is excluded from the analysis. The lower model includes rice. By comparing the R2 values, we can see that excluding rice from the analysis drastically reduces the effect size, but the result is still significant.
 
 ## Phyla Stuff
 ```{r}
