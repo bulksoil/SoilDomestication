@@ -199,26 +199,28 @@ phy_host_lm %>%
 ## Differential OTU Abundance
 Let's find the OTUs that are different between the microbiomes of the different plants. In this analysis I will limit the contrasts to comparisons between the other plants and rice.
 ```{r}
-# DESeq2_plant <- nExp %>% 
-  # filter(Compartment != "Bulk Soil") %>% 
-  # group_by(variable) %>% 
-  # filter(sum(value > 0) / n() > 0.1) %>% 
-  # mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
-  # mutate(group = paste(Compartment, host_common_name, sep = ".")) %>% 
-  # group_by(group_var = "DESeq2") %>% 
-  # nest() %>% 
-  # mutate(DGEL = map(data, ~tidyDGEL(., value = "value", group_column = "group", method = "DESeq2", formula = "~ group"))) %>% 
-  # mutate(dds = map(DGEL, ~DESeq(.))) %>% 
-  # mutate(Sedge_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Sedge")))) %>% 
-  # mutate(Mudplantain_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Mudplantain")))) %>% 
-  # mutate(Redstem_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Redstem")))) %>% 
-  # mutate(Sedge_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Sedge")))) %>% 
-  # mutate(Mudplantain_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Mudplantain")))) %>% 
-  # mutate(Redstem_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Redstem")))) %>% 
-  # dplyr::select(Mudplantain_RS, Sedge_RS, Redstem_RS, Mudplantain_ES, Sedge_ES, Redstem_ES, group_var) %>% 
-  # gather(key = taxon, value = results, -group_var)
+## I commented out this whole chunk because I don't want to run it again. I saved the results as an rds object and will read it in for working in the future.
 
-# saveRDS(DESeq2_plant, file = "~/RMB/SoilDomestication/Data/weeds_deseq.rds")
+DESeq2_plant <- nExp %>% 
+  filter(Compartment != "Bulk Soil") %>% 
+  group_by(variable) %>% 
+  filter(sum(value > 0) / n() > 0.1) %>% 
+  mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
+  mutate(group = paste(Compartment, host_common_name, sep = ".")) %>% 
+  group_by(group_var = "DESeq2") %>% 
+  nest() %>% 
+  mutate(DGEL = map(data, ~tidyDGEL(., value = "value", group_column = "group", method = "DESeq2", formula = "~ group"))) %>% 
+  mutate(dds = map(DGEL, ~DESeq(.))) %>% 
+  mutate(Sedge_RS = map(dds, ~lfcShrink(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Sedge")))) %>% 
+  mutate(Mudplantain_RS = map(dds, ~lfcShrink(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Mudplantain")))) %>% 
+  mutate(Redstem_RS = map(dds, ~lfcShrink(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Redstem")))) %>% 
+  mutate(Sedge_ES = map(dds, ~lfcShrink(., contrast = c("group", "Endosphere.Rice", "Endosphere.Sedge")))) %>% 
+  mutate(Mudplantain_ES = map(dds, ~lfcShrink(., contrast = c("group", "Endosphere.Rice", "Endosphere.Mudplantain")))) %>% 
+  mutate(Redstem_ES = map(dds, ~lfcShrink(., contrast = c("group", "Endosphere.Rice", "Endosphere.Redstem")))) %>% 
+  dplyr::select(Mudplantain_RS, Sedge_RS, Redstem_RS, Mudplantain_ES, Sedge_ES, Redstem_ES, group_var) %>% 
+  gather(key = taxon, value = results, -group_var)
+
+saveRDS(DESeq2_plant, file = "~/RMB/SoilDomestication/Data/weeds_deseq.rds")
 ```
 
 ```{r}
@@ -235,7 +237,6 @@ DESeq2_plant %>%
   mutate(color = ifelse(is.na(color), "ns", color)) %>% 
   dplyr::add_count(Compartment, sig_direction, gene) %>% 
   mutate(cons = ifelse(p.adjusted <= 0.05 & n == 3, "cons", "nc")) %>% 
-  filter(abs(estimate) < 20) %>% 
   mutate(Compartment = fct_recode(factor(Compartment, levels = c("RS", "ES")),
                                   "Rhizosphere" = "RS",
                                   "Endosphere" = "ES")) %>% 
@@ -281,7 +282,7 @@ venn.diagram(es_venn_weed, filename = "w_es_venn.svg", imagetype = "svg", height
 venn.diagram(rs_venn_weed, filename = "w_rs_venn.svg", imagetype = "svg", height = 2, width = 2, euler.d = T, fill = c("darkorange1", "steelblue", "orchid4"), alpha = rep(0.3, 3), lwd = 0, category.names=c("", "", ""))
 ```
 
-
+There are quite a few OTUs specifically enriched in rice or the weeds, let's see what phyla these belong to.
 ```{r}
 intersect_deseq <- DESeq2_plant %>% 
   unnest(map(results, ~tidy(.))) %>% 
@@ -299,20 +300,23 @@ intersect_deseq %>%
   inner_join(tax, by = "variable") %>% 
   dplyr::count(Compartment, direction, Phylum2) %>% 
   mutate(Compartment  = fct_relevel(factor(Compartment), "Rhizosphere", "Endosphere")) %>% 
-  group_by(Compartment, direction) %>% 
-  arrange(nnn) %>% 
+  mutate(nnn2 = ifelse(direction == "Rice", nnn, -nnn)) %>% 
+  group_by(Compartment) %>% 
+  arrange(nnn2) %>% 
   mutate(order = 1:n()) %>% 
-  mutate(location = ifelse(nnn >= 22, nnn-10, nnn+0.5)) %>% 
-  mutate(color = ifelse(nnn >= 22, "white", "black")) %>% 
-  ggplot(aes(order, nnn, lable = "Phylum2")) +
+  mutate(direction_multiplier = ifelse(nnn2 > 0, 1, -1)) %>% 
+  mutate(hjust = ifelse(nnn2 > 0, 0, 1)) %>% 
+  mutate(location = ifelse(nnn >= abs(10), (1)*direction_multiplier, (nnn+0.5) * direction_multiplier)) %>% 
+  mutate(color = ifelse(nnn >= abs(10), "white", "black")) %>% 
+  ggplot(aes(order, nnn2, lable = "Phylum2", fill = factor(direction_multiplier))) +
   geom_bar(stat = "identity") +
-  geom_text(aes(x = order, y = location, label = Phylum2, color = color), hjust = 0, size = 3.5) +
+  geom_text(aes(x = order, y = location, label = Phylum2, color = color, hjust = hjust), size = 3.5) +
   scale_color_manual(values = c("black", "white")) +
-  facet_wrap( ~ Compartment + direction, scales = "free") +
+  facet_wrap( ~ Compartment, scales = "free") +
   theme_minimal() +
   theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), legend.position = "none") +
   coord_flip() +
-  ylim(0, 35)
+  scale_fill_manual(values = c("black", "#4DAF4A"))
 ```
 One of the prevailing phyla coming out as being specifically enriched in rice is Euryarachaeota, which contains methanogenic archaea. Let's go a big deeper here.
 ```{r}
@@ -395,6 +399,25 @@ mg_mt_ratios %>%
   theme_minimal() +
   theme(text = element_text(size = 12)) +
   labs(x = "", y = "log2(Methanogen / Methanotroph)")
+
+mg_mt_ratios %>% 
+  filter(Compartment != "Bulk Soil" & ratio > 0 ) %>% 
+  group_by(Compartment) %>% 
+  mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
+  nest() %>% 
+  mutate(model = map(data, ~lm(log2(ratio) ~ host_common_name, .))) %>% 
+  unnest(map(model, ~tidy(.)))
+
+mg_mt_ratios %>% 
+  filter(Compartment != "Bulk Soil" & ratio > 0 ) %>% ungroup() %>% 
+  mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
+  group_by(1) %>% 
+  nest() %>% 
+  mutate(model = map(data, ~aov(log2(ratio) ~ Compartment*host_common_name, .))) %>% 
+  unnest(map(model, ~tidy(TukeyHSD(.)))) %>% 
+  filter(adj.p.value <= 0.05)
+
+mg_mt_ratios %>% arrange(ratio)
 ```
 
 
