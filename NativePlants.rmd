@@ -297,25 +297,10 @@ intersect_deseq <- DESeq2_plant %>%
 intersect_deseq %>% 
   inner_join(tax, by = "variable") %>% 
   dplyr::count(Compartment, direction, Phylum2) %>% 
-  mutate(nnn2 = ifelse(direction == "Rice", nnn, -nnn)) %>% 
-  group_by(Phylum2, Compartment) %>% 
-  mutate(order_thing = sum(nnn)) %>% 
-  filter(nnn > 1) %>% 
-  ggplot(aes(fct_reorder(Phylum2, -order_thing), nnn2)) +
-  geom_bar(stat = "identity") +
-  geom_hline(yintercept = 0, color = "white") +
-  facet_grid(. ~ Compartment) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 30, hjust = 1))
-
-intersect_deseq %>% 
-  inner_join(tax, by = "variable") %>% 
-  dplyr::count(Compartment, direction, Phylum2) %>% 
   mutate(Compartment  = fct_relevel(factor(Compartment), "Rhizosphere", "Endosphere")) %>% 
   group_by(Compartment, direction) %>% 
   arrange(nnn) %>% 
   mutate(order = 1:n()) %>% 
-  filter(nnn > 2) %>% 
   mutate(location = ifelse(nnn >= 22, nnn-10, nnn+0.5)) %>% 
   mutate(color = ifelse(nnn >= 22, "white", "black")) %>% 
   ggplot(aes(order, nnn, lable = "Phylum2")) +
@@ -328,6 +313,89 @@ intersect_deseq %>%
   coord_flip() +
   ylim(0, 35)
 ```
+One of the prevailing phyla coming out as being specifically enriched in rice is Euryarachaeota, which contains methanogenic archaea. Let's go a big deeper here.
+```{r}
+rice_specific_mathanogen_otus <- intersect_deseq %>% 
+  inner_join(tax, by = "variable") %>% 
+  filter(grepl("Methano", Family) & direction == "Rice") %>% 
+  dplyr::select(Compartment, variable)
+
+methanogen_data <- nExp %>% 
+  inner_join(tax, by = "variable") %>% 
+  filter(grepl("Methano", Family)) %>% 
+  group_by(variable, Compartment) %>%
+  filter(sum(value) > 0) %>% 
+  summarise(mean_ab = mean(RA)) %>% 
+  group_by(Compartment) %>% 
+  arrange(-mean_ab) %>% 
+  mutate(rank = 1:n())
+
+mg_plot <- rbind(methanogen_data %>% filter(!variable%in%rice_specific_mathanogen_otus) %>%  mutate(color = "not_rice"),
+                 methanogen_data %>% inner_join(rice_specific_mathanogen_otus, by = c("variable", "Compartment")) %>% mutate(color = "rice")) %>% 
+  filter(Compartment != "Bulk Soil") %>% ungroup() %>% 
+  mutate(Compartment = fct_relevel(factor(Compartment), "Rhizosphere", "Endosphere")) %>% 
+  ggplot(aes(rank, mean_ab, color = color)) +
+  geom_point(size = 2) +
+  facet_grid(.~Compartment) +
+  scale_y_log10() +
+  scale_color_manual(values = c("black", "red")) +
+  theme_minimal() +
+  theme(text = element_text(size = 12))
+```
+What about methanotrophic eubacteria?
+```{r}
+methanotroph_otus <- intersect_deseq %>% 
+  inner_join(tax, by = "variable") %>% 
+  filter(grepl("Methyl", Family) & Genus != "Pleomorphomonas") 
+
+methanotroph_data <- nExp %>% 
+  inner_join(tax, by = "variable") %>% 
+  filter(grepl("Methyl", Family) & Genus != "Pleomorphomonas") %>% 
+  group_by(variable, Compartment) %>%
+  filter(sum(value) > 0) %>% 
+  summarise(mean_ab = mean(RA)) %>% 
+  group_by(Compartment) %>% 
+  arrange(-mean_ab) %>% 
+  mutate(rank = 1:n())
+
+mt_plot <- rbind(methanotroph_data %>% filter(!variable%in%unique(methanotroph_otus$variable)) %>%  mutate(color = "ns"),
+                 methanotroph_data %>% inner_join(methanotroph_otus, by = c("variable", "Compartment")) %>% mutate(color = direction)) %>% 
+  filter(Compartment != "Bulk Soil") %>% ungroup() %>% 
+  mutate(Compartment = fct_relevel(factor(Compartment), "Rhizosphere", "Endosphere")) %>% 
+  ggplot(aes(rank, mean_ab, color = color, shape = color)) +
+  geom_point(size = 2) +
+  facet_grid(.~Compartment) +
+  scale_y_log10() +
+  scale_shape_manual(values = c(16,1,16)) +
+  scale_color_manual(values = c("black", "dodgerblue", "dodgerblue")) +
+  theme_minimal() +
+  theme(text = element_text(size = 12))
+```
+```{r}
+library(gridExtra)
+grid.arrange(mg_plot, mt_plot)
+```
+```{r}
+mg_mt_ratios <- rbind(nExp %>% inner_join(tax, by = "variable") %>% filter(grepl("Methano", Family)) %>% mutate(classification = "Methanogen"),
+                      nExp %>% inner_join(tax, by = "variable") %>% filter(grepl("Methyl", Family) & Genus != "Pleomorphomonas")%>% mutate(classification = "Methanotroph")) %>% 
+  group_by(SampleID, Compartment, host_common_name, classification) %>% 
+  summarise(total = sum(RA)) %>% 
+  tidyr::spread(key = classification, value = total) %>% 
+  mutate(ratio = Methanogen / Methanotroph)
+
+mg_mt_ratios %>% 
+  ungroup() %>% 
+  filter(Compartment != "Bulk Soil") %>% 
+  mutate(Compartment = fct_relevel(factor(Compartment), "Rhizosphere", "Endosphere")) %>% 
+  ggplot(aes(Compartment, log2(ratio), color = host_common_name)) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_point(position = position_jitterdodge(jitter.width = 0.1, jitter.height = 0), size = 2) +
+  scale_color_manual(values = c("#FF7F00", "#984EA3", "#4DAF4A", "#377EB8")) +
+  theme_minimal() +
+  theme(text = element_text(size = 12)) +
+  labs(x = "", y = "log2(Methanogen / Methanotroph)")
+```
+
 
 ## Comparisons to bulk soil
 Looking at the above PCoA, the communities in the rice rhizosphere appear to be remarkably similar to bulk soil. Let's go more into depth and ask whether this is statistically true.
