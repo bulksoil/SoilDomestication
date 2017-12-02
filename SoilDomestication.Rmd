@@ -42,10 +42,16 @@ dPC <- tidy_pcoa(dExp %>% mutate(RA = RA*1000), dist = "bray", value = "RA", kee
 dPC$axes %>% 
   ggplot(aes(MDS1, MDS2, color = From, shape = Experiment)) +
   geom_point(size = 3, alpha = 0.7) +
-  stat_ellipse(aes(group = Compartment), color = "black") +
   scale_color_manual(values = c("dodgerblue", "gold")) +
   theme_minimal() +
   labs(x = paste("PCo1 (", round(nPC$eigen_vals[1] * 100, 2), "%)", sep = ""), y = paste("PCo2 (", round(nPC$eigen_vals[2] * 100, 2), "%)", sep = ""))
+```
+
+## Comparing rhizosphere to bulk soil distances
+Remember that result where the rice rhizosphere is significantly more similar to the bulk soil microbiome than the rhizosphere microbiomes from the native plants? One of the hypotheses that came from that was that rice may be "domesticating" the soil microbiome. If you go to rice field, you will quickly realize that those plants are growing so closely together that, at some point in the season, there all of the roots will overlap and the top layer of soil is only composed of rhizosphere. We can test this hypothesis by growing rice plants in soil from rice fields and soil from uncultivated sites. In order to support this hypothesis that rice is "domesticating" field soil, we need to show a few things. One is that the distance between rhizospehre and bulk soil is greater in the "wild" soils. The other is that the rhizospheres of rice plants growing in wild and domesticated soils are mmore similar than the bulk soils.
+```{r}
+d_dist <- nExp %>% 
+  long_distance(.)
 ```
 
 ## Differentially abundant OTUs
@@ -59,10 +65,10 @@ dom_deseq <- dExp %>%
   nest() %>% 
   mutate(DGEL = map(data, ~suppressMessages(tidyDGEL(., value = "value", group_column = "group", method = "DESeq2", formula = "~ group")))) %>% 
   mutate(dds = map(DGEL, ~suppressMessages(DESeq(.)))) %>% 
-  mutate(BulkSoil = map(dds, ~results(., contrast = c("group", "Bulk Soil.A", "Bulk Soil.N")))) %>% 
-  mutate(Rhizosphere = map(dds, ~results(., contrast = c("group", "Rhizosphere.A", "Rhizosphere.N")))) %>% 
-  mutate(Endosphere = map(dds, ~results(., contrast = c("group", "Endosphere.A", "Endosphere.N")))) %>% 
-  select(BulkSoil, Rhizosphere, Endosphere, Experiment) %>% 
+  mutate(BulkSoil = map(dds, ~lfcShrink(., contrast = c("group", "Bulk Soil.A", "Bulk Soil.N")))) %>% 
+  mutate(Rhizosphere = map(dds, ~lfcShrink(., contrast = c("group", "Rhizosphere.A", "Rhizosphere.N")))) %>% 
+  mutate(Endosphere = map(dds, ~lfcShrink(., contrast = c("group", "Endosphere.A", "Endosphere.N")))) %>% 
+  dplyr::select(BulkSoil, Rhizosphere, Endosphere, Experiment) %>% 
   gather(key = Compartment, value = results, -Experiment)
 
 dom_deseq %>% 
@@ -82,8 +88,8 @@ dom_otus <- dom_deseq %>%
   filter(direction == "A") %>% 
   dplyr::rename(variable = gene)
 
-weeds_deseq <- read_rds("~/RMB/SoilDomestication/Data/weeds_deseq.rds")
-rice_otus <- weeds_deseq %>% 
+np_deseq <- read_rds("~/RMB/SoilDomestication/Data/weeds_deseq.rds")
+rice_otus <- np_deseq %>% 
   unnest(map(results, ~tidy(.))) %>% 
   separate(taxon, sep = "_", into = c("Taxon", "Compartment")) %>% 
   mutate(direction = ifelse(estimate < 0, "Weed", "Rice")) %>% 
