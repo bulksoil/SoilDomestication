@@ -197,27 +197,28 @@ phy_host_lm %>%
 
 
 ## Differential OTU Abundance
+Let's find the OTUs that are different between the microbiomes of the different plants. In this analysis I will limit the contrasts to comparisons between the other plants and rice.
 ```{r}
-DESeq2_plant <- nExp %>% 
-  filter(Compartment != "Bulk Soil") %>% 
-  group_by(variable) %>% 
-  filter(sum(value > 0) / n() > 0.1) %>% 
-  mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
-  mutate(group = paste(Compartment, host_common_name, sep = ".")) %>% 
-  group_by(group_var = "DESeq2") %>% 
-  nest() %>% 
-  mutate(DGEL = map(data, ~tidyDGEL(., value = "value", group_column = "group", method = "DESeq2", formula = "~ group"))) %>% 
-  mutate(dds = map(DGEL, ~DESeq(.))) %>% 
-  mutate(Sedge_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Sedge")))) %>% 
-  mutate(Mudplantain_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Mudplantain")))) %>% 
-  mutate(Redstem_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Redstem")))) %>% 
-  mutate(Sedge_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Sedge")))) %>% 
-  mutate(Mudplantain_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Mudplantain")))) %>% 
-  mutate(Redstem_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Redstem")))) %>% 
-  dplyr::select(Mudplantain_RS, Sedge_RS, Redstem_RS, Mudplantain_ES, Sedge_ES, Redstem_ES, group_var) %>% 
-  gather(key = taxon, value = results, -group_var)
+# DESeq2_plant <- nExp %>% 
+  # filter(Compartment != "Bulk Soil") %>% 
+  # group_by(variable) %>% 
+  # filter(sum(value > 0) / n() > 0.1) %>% 
+  # mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
+  # mutate(group = paste(Compartment, host_common_name, sep = ".")) %>% 
+  # group_by(group_var = "DESeq2") %>% 
+  # nest() %>% 
+  # mutate(DGEL = map(data, ~tidyDGEL(., value = "value", group_column = "group", method = "DESeq2", formula = "~ group"))) %>% 
+  # mutate(dds = map(DGEL, ~DESeq(.))) %>% 
+  # mutate(Sedge_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Sedge")))) %>% 
+  # mutate(Mudplantain_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Mudplantain")))) %>% 
+  # mutate(Redstem_RS = map(dds, ~results(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Redstem")))) %>% 
+  # mutate(Sedge_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Sedge")))) %>% 
+  # mutate(Mudplantain_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Mudplantain")))) %>% 
+  # mutate(Redstem_ES = map(dds, ~results(., contrast = c("group", "Endosphere.Rice", "Endosphere.Redstem")))) %>% 
+  # dplyr::select(Mudplantain_RS, Sedge_RS, Redstem_RS, Mudplantain_ES, Sedge_ES, Redstem_ES, group_var) %>% 
+  # gather(key = taxon, value = results, -group_var)
 
-saveRDS(DESeq2_plant, file = "~/RMB/SoilDomestication/Data/weeds_deseq.rds")
+# saveRDS(DESeq2_plant, file = "~/RMB/SoilDomestication/Data/weeds_deseq.rds")
 ```
 
 ```{r}
