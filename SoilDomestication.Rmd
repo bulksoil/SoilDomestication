@@ -58,15 +58,20 @@ rs_vs_bs <- d_dist %>%
   filter(Compartment.y%in%c("Rhizosphere", "Bulk Soil")) %>% 
   filter(Compartment.x != Compartment.y) %>% 
   filter(From.x == From.y) %>% 
-  filter(Experiment.x == Experiment.y)
+  filter(Experiment.x == Experiment.y) %>% 
+  mutate(From = ifelse(From.x == "A", "Agricultural", "Non-agricultural"))
 
-rs_vs_bs %>% 
-  ggplot(aes(From.x, value, fill = From.x)) +
-  geom_jitter(aes(shape = Experiment.x), width = 0.1, height = 0) +
+rs_vs_bs_plot <- rs_vs_bs %>% 
+  ggplot(aes(From, value, fill = From)) +
+  geom_jitter(width = 0.1, height = 0, alpha = 0.5) +
   geom_boxplot(alpha = 0.3, width = 0.5) +
   scale_fill_manual(values = c("dodgerblue", "gold")) +
   scale_shape_manual(values = c(1,4)) +
-  theme_minimal() 
+  theme_minimal() +
+  labs(x = "", y = "Bray Dissimilarity") +
+  theme(text = element_text(size =12), legend.position = "none", axis.text.x = element_text(angle = 30, hjust = 1))
+
+rs_vs_bs_plot
 ```
 
 The above plot appears to support my suspicion that rice plants growing in agricultural soil host a rhizosphere microbiome that is more similar to their corresponding bulk soils. Let's do some statistics to make sure these differences are "signficant".
@@ -82,6 +87,37 @@ rs_vs_bs %>%
 
 Cool Cool. Looks lik this trend is significant. Let's compare the rhizospheres to see if they are more similar.
 
+```{r}
+same_comps <- d_dist %>% 
+  filter(Compartment.x%in%c("Rhizosphere", "Bulk Soil")) %>% 
+  filter(Compartment.y%in%c("Rhizosphere", "Bulk Soil")) %>% 
+  filter(Compartment.x == Compartment.y) %>% 
+  filter(Experiment.x == Experiment.y) %>% 
+  mutate(type = ifelse(From.y == From.x, "aSelf", "bOut")) 
+
+same_comps_plot <- same_comps %>% 
+  ggplot(aes(Compartment.x, value)) +
+  geom_jitter(width = 0.1, alpha = 0.7) +
+  geom_boxplot(alpha = 0, width = 0.7) +
+  facet_wrap(~type) +
+  scale_shape_manual(values = c(1,4)) +
+  theme_minimal() +
+  labs(x = "", y = "Bray Dissimilarity") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1), text = element_text(size = 12))
+
+same_comps_plot
+```
+
+```{r}
+same_comps %>% 
+  group_by(type) %>% 
+  nest() %>% 
+  mutate(mod = map(data, ~lm(value ~ Compartment.x, .))) %>% 
+  unnest(map(mod, ~tidy(.)))
+```
+```{r}
+grid.arrange(rs_vs_bs_plot, same_comps_plot, ncol = 2)
+```
 
 
 ## Differentially abundant OTUs
@@ -114,8 +150,7 @@ dom_otus <- dom_deseq %>%
   filter(p.adjusted <= 0.05) %>% ungroup() %>% 
   dplyr::count(direction, Compartment, gene) %>% 
   filter(n == 2) %>% 
-  dplyr::count(direction, gene) %>% 
-  filter(direction == "A") %>% 
+  dplyr::count(direction, gene, Compartment) %>% 
   dplyr::rename(variable = gene)
 
 np_deseq <- read_rds("~/RMB/SoilDomestication/Data/weeds_deseq.rds")
@@ -137,7 +172,7 @@ rice_otus <- np_deseq %>%
 ### What is the overlap of rice enriched microbes with the domesticated microbes?
 ```{r}
 nA <- length(unique(rice_otus$variable))
-nB <- length(unique(dom_otus$variable))
+nB <- length(unique(dom_otus %>% filter(direction == "A") %>% pull(variable)))
 nC <- length(union(nExp %>% group_by(variable) %>% filter(sum(value) > 0) %>% dplyr::count(variable) %>% pull(variable),
           dExp %>% group_by(variable) %>% filter(sum(value) > 0) %>% dplyr::count(variable) %>% pull(variable)))
 nAB <- length(intersect(dom_otus$variable, rice_otus$variable))
@@ -146,8 +181,44 @@ prob <- phyper(nAB, nB, nC-nB, nA, lower.tail = F)
 ```
 There are `r nA` rice enriched microbes (compared to the weeds) and `r nB` OTUs that are enriched at least in one compartment of the plants growing in domesticated soils. Between the rice vs. weeds dataset and the soil domestication dataset, there are `r nC` OTUs. There are `r nAB` OTUs shared between the rice enriched and domesticated microbes. What is the probability that we whitness and overlap of `r nAB` OTUs given these parameters? We can treat this like the trusty old "black and white balls in an urn" analogy. If we have an urn filled with `r nC`, and `r nB` of these balls are black and the rest are white, what is the probability that if we draw `r nA` balls from the urn that `r nAB` of the balls will be black? We can use the hypergeometric function to figure out. After doing this calculation, we find that the probability of having an overlap of `r nAB` between the datasets is `r prob`.
 
+We have this nice overlap. Let's show it in tree form.
 ```{r}
+library(phyloseq)
+dRA <- widen(dExp, return_df = T)
+dMD <- grab_metadata(dExp, return_df = T)
+gg_tree <- readRDS("~/RMB/SoilDomestication/Data/gg_tree.rds")
 
+dTax <- dom_otus %>% 
+  inner_join(tax, by = "variable") %>% 
+  spread(Compartment, direction) %>% 
+  mutate(Phylum2 = as.character(Phylum2)) %>% 
+  dplyr::rename(Domain = Kingdom)
+
+dRA <- otu_table(dRA, taxa_are_rows = F)
+dTax <- tax_table(as.matrix(dTax))
+dMD <- sample_data(dMD)
+physeq <- phyloseq(dRA[,1], tax.tab)
+physeq1 = merge_phyloseq(physeq, gg_tree)
 ```
 
+
+```{r}
+widen2 <- function(x, samples = "SampleID", otus = "variable", value = "RA", return_df = FALSE){
+	message("Converting to wide table.")
+	wide_table <- x %>% 
+		dplyr::select_(samples, otus, value) %>% 
+		tidyr::spread_(otus, value, fill = 0) %>% 
+	  ungroup()
+
+	if(return_df) {
+	  df_row_names <- wide_table %>% dplyr::select_(samples) %>% pull()
+	  wide_table <- wide_table %>% dplyr::select_(.dots = paste("-", samples))
+		wide_table = as.data.frame(wide_table)
+		row.names(wide_table) <- df_row_names
+		return(wide_table)
+	} else {
+		return(wide_table)
+	}
+}
+```
 
