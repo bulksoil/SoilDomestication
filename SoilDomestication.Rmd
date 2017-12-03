@@ -50,9 +50,39 @@ dPC$axes %>%
 ## Comparing rhizosphere to bulk soil distances
 Remember that result where the rice rhizosphere is significantly more similar to the bulk soil microbiome than the rhizosphere microbiomes from the native plants? One of the hypotheses that came from that was that rice may be "domesticating" the soil microbiome. If you go to rice field, you will quickly realize that those plants are growing so closely together that, at some point in the season, there all of the roots will overlap and the top layer of soil is only composed of rhizosphere. We can test this hypothesis by growing rice plants in soil from rice fields and soil from uncultivated sites. In order to support this hypothesis that rice is "domesticating" field soil, we need to show a few things. One is that the distance between rhizospehre and bulk soil is greater in the "wild" soils. The other is that the rhizospheres of rice plants growing in wild and domesticated soils are mmore similar than the bulk soils.
 ```{r}
-d_dist <- nExp %>% 
+d_dist <- dExp %>% 
   long_distance(.)
+
+rs_vs_bs <- d_dist %>% 
+  filter(Compartment.x%in%c("Rhizosphere", "Bulk Soil")) %>% 
+  filter(Compartment.y%in%c("Rhizosphere", "Bulk Soil")) %>% 
+  filter(Compartment.x != Compartment.y) %>% 
+  filter(From.x == From.y) %>% 
+  filter(Experiment.x == Experiment.y)
+
+rs_vs_bs %>% 
+  ggplot(aes(From.x, value, fill = From.x)) +
+  geom_jitter(aes(shape = Experiment.x), width = 0.1, height = 0) +
+  geom_boxplot(alpha = 0.3, width = 0.5) +
+  scale_fill_manual(values = c("dodgerblue", "gold")) +
+  scale_shape_manual(values = c(1,4)) +
+  theme_minimal() 
 ```
+
+The above plot appears to support my suspicion that rice plants growing in agricultural soil host a rhizosphere microbiome that is more similar to their corresponding bulk soils. Let's do some statistics to make sure these differences are "signficant".
+```{r}
+tidy(lm(value ~ From.x, data = rs_vs_bs))
+
+rs_vs_bs %>% 
+  group_by(Experiment.x) %>% 
+  nest() %>% 
+  mutate(mod = map(data, ~lm(value ~ From.x, .))) %>% 
+  unnest(map(mod, ~tidy(.)))
+```
+
+Cool Cool. Looks lik this trend is significant. Let's compare the rhizospheres to see if they are more similar.
+
+
 
 ## Differentially abundant OTUs
 We see relatively large differences between "domesticated" and "wild" soils. Let's find the OTUs that explain these differences.
