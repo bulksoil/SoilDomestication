@@ -184,7 +184,7 @@ There are `r nA` rice enriched microbes (compared to the weeds) and `r nB` OTUs 
 We have this nice overlap. Let's show it in tree form.
 ```{r}
 library(phyloseq)
-dRA <- widen(dExp, return_df = T)
+dRA <- t(widen(dExp, return_df = T))
 dMD <- grab_metadata(dExp, return_df = T)
 gg_tree <- readRDS("~/RMB/SoilDomestication/Data/gg_tree.rds")
 
@@ -192,13 +192,36 @@ dTax <- dom_otus %>%
   inner_join(tax, by = "variable") %>% 
   spread(Compartment, direction) %>% 
   mutate(Phylum2 = as.character(Phylum2)) %>% 
-  dplyr::rename(Domain = Kingdom)
+  dplyr::rename(Domain = Kingdom) %>% 
+  as.data.frame()
+row.names(dTax) <- dTax$variable
 
-dRA <- otu_table(dRA, taxa_are_rows = F)
+dRA <- otu_table(dRA[match(row.names(dTax), row.names(dRA)),], taxa_are_rows = T)
 dTax <- tax_table(as.matrix(dTax))
 dMD <- sample_data(dMD)
-physeq <- phyloseq(dRA[,1], tax.tab)
-physeq1 = merge_phyloseq(physeq, gg_tree)
+physeq <- phyloseq(dRA[,1], dTax)
+physeq <- merge_phyloseq(physeq, gg_tree)
+physeq <- prune_taxa(taxa_names(physeq)[taxa_names(physeq)%in%unique(dom_otus$variable)], physeq)
+
+dom.map <- data.frame(Compartment = c("aShared", rep(c("Bulk Soil", "bRhizosphere", "cEndosphere"), each = 2)),
+                      Type = c("ashared",rep(c("Domesticated", "Wild"), 3)),
+                      row.names = paste("D", 0:6, sep = ""))
+
+dom.map$SampleType = paste(dom.map$Type, dom.map$Compartment)
+colnames(domModSum) <- gsub("Rhizosphere" ,"bRhizosphere", colnames(domModSum))
+colnames(domModSum) <- gsub("Endosphere" ,"cEndosphere", colnames(domModSum))
+domModSum$aShared_ashared <- 0
+domModSum$aShared_ashared[row.names(domModSum)%in%overlapping_otus$variable] <- 1
+domModSum <- domModSum[,match(paste(dom.map$Compartment, dom.map$Type, sep = "_"), colnames(domModSum))]
+
+dom.physeq <- phyloseq(dRA, 
+                       dMD,
+                       dTax,
+                       gg_tree)
+
+plot_tree(dom.physeq, color = "Phylum2", ladderize = "left", shape = "Compartment") +
+  scale_color_manual(values = c(brewer.pal(10, "RdGy"), brewer.pal(9, "Blues"))) +
+  scale_shape_manual(values = c(8, 16, 15, 17))
 ```
 
 
