@@ -175,7 +175,7 @@ nA <- length(unique(rice_otus$variable))
 nB <- length(unique(dom_otus %>% filter(direction == "A") %>% pull(variable)))
 nC <- length(union(nExp %>% group_by(variable) %>% filter(sum(value) > 0) %>% dplyr::count(variable) %>% pull(variable),
           dExp %>% group_by(variable) %>% filter(sum(value) > 0) %>% dplyr::count(variable) %>% pull(variable)))
-nAB <- length(intersect(dom_otus$variable, rice_otus$variable))
+nAB <- length(intersect(dom_otus %>% filter(direction == "A") %>% pull(variable), rice_otus$variable))
 
 prob <- phyper(nAB, nB, nC-nB, nA, lower.tail = F)
 ```
@@ -184,9 +184,30 @@ There are `r nA` rice enriched microbes (compared to the weeds) and `r nB` OTUs 
 We have this nice overlap. Let's show it in tree form.
 ```{r}
 library(phyloseq)
-dRA <- t(widen(dExp, return_df = T))
-dMD <- grab_metadata(dExp, return_df = T)
 gg_tree <- readRDS("~/RMB/SoilDomestication/Data/gg_tree.rds")
+
+
+
+domMD <- data.frame(Compartment = c("aShared", rep(c("bBulkSoil", "cRhizosphere", "dEndosphere"), each = 2)),
+                      Type = c("aShared",rep(c("Domesticated", "Wild"), 3)),
+                      SampleID = paste("D", 0:6, sep = ""),
+                    row.names = paste("D", 0:6, sep = ""))
+
+dT <- dom_otus %>% 
+  mutate(Type = ifelse(direction == "A", "Domesticated", "Wild")) %>% 
+  mutate(Compartment = gsub("BulkSoil", "bBulkSoil", Compartment),
+         Compartment = gsub("Rhizosphere", "cRhizosphere", Compartment),
+         Compartment = gsub("Endosphere", "dEndosphere", Compartment)) %>% 
+  bind_rows(rice_otus %>% filter(variable%in%intersect(dom_otus %>% filter(direction == "A") %>% pull(variable), rice_otus$variable)) %>% 
+              dplyr::count(variable) %>% 
+              mutate(Type = "aShared", Compartment = "aShared")) %>% 
+  mutate(value = 1) %>% 
+  inner_join(domMD, by = c("Compartment", "Type")) %>%
+  dplyr::select(SampleID, variable, value) %>% 
+  spread(SampleID, value, fill = 0) %>% 
+  as.data.frame()
+row.names(dT) <- dT$variable
+dT$variable <- NULL  
 
 dTax <- dom_otus %>% 
   inner_join(tax, by = "variable") %>% 
@@ -195,33 +216,25 @@ dTax <- dom_otus %>%
   dplyr::rename(Domain = Kingdom) %>% 
   as.data.frame()
 row.names(dTax) <- dTax$variable
+dTax <- dTax[match(row.names(dT), row.names(dTax)),]
 
-dRA <- otu_table(dRA[match(row.names(dTax), row.names(dRA)),], taxa_are_rows = T)
-dTax <- tax_table(as.matrix(dTax))
-dMD <- sample_data(dMD)
-physeq <- phyloseq(dRA[,1], dTax)
-physeq <- merge_phyloseq(physeq, gg_tree)
-physeq <- prune_taxa(taxa_names(physeq)[taxa_names(physeq)%in%unique(dom_otus$variable)], physeq)
 
-dom.map <- data.frame(Compartment = c("aShared", rep(c("Bulk Soil", "bRhizosphere", "cEndosphere"), each = 2)),
-                      Type = c("ashared",rep(c("Domesticated", "Wild"), 3)),
-                      row.names = paste("D", 0:6, sep = ""))
-
-dom.map$SampleType = paste(dom.map$Type, dom.map$Compartment)
-colnames(domModSum) <- gsub("Rhizosphere" ,"bRhizosphere", colnames(domModSum))
-colnames(domModSum) <- gsub("Endosphere" ,"cEndosphere", colnames(domModSum))
-domModSum$aShared_ashared <- 0
-domModSum$aShared_ashared[row.names(domModSum)%in%overlapping_otus$variable] <- 1
-domModSum <- domModSum[,match(paste(dom.map$Compartment, dom.map$Type, sep = "_"), colnames(domModSum))]
-
-dom.physeq <- phyloseq(dRA, 
-                       dMD,
+dom.physeq_sampleType <- phyloseq(otu_table(dT, taxa_are_rows = T), 
+                       sample_data(domMD),
                        dTax,
                        gg_tree)
+# Plot tree with metadata
+plot_tree(dom.physeq_sampleType, color = "Type", ladderize = "left", shape = "Compartment", justify = "left", size = "Type", alpha = "Type") +
+  scale_color_manual(values = c('black', "dodgerblue", "goldenrod")) +
+  scale_shape_manual(values = c(1, 16, 15, 17)) +
+  scale_size_manual(values = c(1,2,2,2))
 
-plot_tree(dom.physeq, color = "Phylum2", ladderize = "left", shape = "Compartment") +
-  scale_color_manual(values = c(brewer.pal(10, "RdGy"), brewer.pal(9, "Blues"))) +
-  scale_shape_manual(values = c(8, 16, 15, 17))
+# Plot tree with taxonomic information
+dom.physeq_Phy <- phyloseq(otu_table(data.frame(J1 = rep(1, nrow(dT)), row.names = row.names(dT)), taxa_are_rows = T), 
+                       tax_table(as.matrix(dTax)),
+                       gg_tree)
+
+plot_tree(dom.physeq_Phy, color = "Phylum2", ladderize = "left") 
 ```
 
 
