@@ -1,0 +1,118 @@
+---
+title: "Plant Microbiome Metaanalysis"
+output: html_notebook
+author: "Joe Edwards"
+---
+
+## Introduction
+
+## Load in the libraries
+Note that this analysis relies on the tidyMB package. This can be found on my github profile.
+```{r}
+library(vegan)
+library(broom)
+library(tidyverse)
+library(broom)
+library(biobroom)
+library(tidyMB)
+library(DESeq2)
+```
+
+```{r}
+## Do Not Run
+# wExp <- read_rds("~/RMB/SoilDomesticationData/wExp.rds")
+# wExp %>% 
+  # filter(!Experiment%in%c("Mix", "Transplant", "Weeds")) %>% 
+  # ungroup() %>% 
+  # group_by(variable) %>% 
+  # filter(sum(value) > 0) %>% 
+  # dplyr::select(-From, - Site, -LatinName, -host_subject_id) %>% 
+  # saveRDS("~/RMB/SoilDomestication/Data/ma_data.rds") %>% 
+  # filter(!Compartment%in%c("fresh water", "Grapes", "Leaves", "Rhizoplane"))
+
+mExp <- readRDS("~/RMB/SoilDomesticationData/ma_data.rds") %>% filter(!Compartment%in%c("fresh water", "Grapes", "Leaves", "Rhizoplane"))
+tax <- readRDS("~/RMB/SoilDomestication/Data/gg_otus_tax.rds")
+```
+
+```{r}
+plant_cap <- tidy_cap(mExp %>% ungroup() %>% mutate(logRA = log2(RA * 1000 + 1)), value = "logRA", formula = "host_common_name")
+plant_pcoa <-  tidy_pcoa(mExp %>% ungroup() %>% mutate(logRA = log2(RA * 1000 + 1)), value = "logRA")
+```
+
+```{r}
+plant_cap$axes %>% 
+  ggplot(aes(CAP1, CAP2, color = study)) +
+  geom_point(alpha = 0.5) +
+  scale_color_brewer(palette = "Set2") +
+  theme_minimal()
+
+plant_pcoa$axes %>% 
+  ggplot(aes(MDS1, MDS2, color = study)) +
+  geom_point(alpha = 0.5) +
+  scale_color_manual(values = brewer.pal(7, "Set2")[-4]) +
+  labs(x = paste("PCo1 (", round(plant_pcoa$eigen_vals[1] * 100, 2), "%)", sep = ""), 
+       y = paste("PCo2 (", round(plant_pcoa$eigen_vals[2] * 100, 2), "%)", sep = "")) +
+  theme_minimal()
+```
+
+```{r}
+mDist <- mExp %>% 
+  ungroup() %>% 
+  mutate(Compartment = ifelse(grepl("soil", Compartment, ignore.case = T), "Bulk Soil", Compartment)) %>% 
+  mutate(Compartment = ifelse(grepl("rhizosphere", Compartment, ignore.case = T), "Rhizosphere", Compartment)) %>% 
+  mutate(Compartment = ifelse(grepl("root", Compartment, ignore.case = T), "Endosphere", Compartment)) %>% 
+  filter(Compartment != "Bulk Soil") %>% 
+  mutate(logRA = log2(RA * 1000 + 1)) %>% 
+  long_distance(value = "logRA", keep_metadata = T)
+
+mDist %>% 
+  filter(study.x == "rice_edwards" | study.y == "rice_edwards") %>% 
+  filter(study.x != study.y) %>% 
+  mutate(study = ifelse(study.x == "rice_edwards", study.y, study.x)) %>% 
+  mutate(study = fct_reorder(study, value)) %>% 
+  ggplot(aes(study, value, color = study, alpha = study)) +
+  geom_boxplot(alpha = 0, width = 0.3) +
+  theme_minimal() +
+  scale_color_manual(values = c("#E5C494", "#66C2A5", "#8DA0CB", "#A6D854", "#FC8D62", "#E5C494")) +
+  labs(x = "") +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+  scale_alpha_manual(values = c(0.05, 0.05, 0.05, 0.05, 1))
+```
+```{r}
+dput(brewer.pal(7, "Set2")[-4])
+```
+
+
+```{r}
+mPhy <- mExp %>% 
+  inner_join(tax, by = "variable") %>% 
+  group_by(SampleID, Compartment, Phylum2, host_common_name, study) %>% 
+  summarise(sample_total = sum(RA)) %>% ungroup() %>% 
+  mutate(Compartment = ifelse(grepl("soil", Compartment, ignore.case = T), "Bulk Soil", Compartment)) %>% 
+  mutate(Compartment = ifelse(grepl("rhizosphere", Compartment, ignore.case = T), "Rhizosphere", Compartment)) %>% 
+  mutate(Compartment = ifelse(grepl("root", Compartment, ignore.case = T), "Endosphere", Compartment)) %>% 
+  filter(!Compartment%in%c("fresh water", "Grapes", "Leaves", "Rhizoplane"))
+
+mPhy %>% 
+  group_by(Phylum2) %>% 
+  mutate(phy_total = sum(sample_total)) %>% 
+  group_by(Phylum2, phy_total) %>% 
+  nest() %>% 
+  arrange(-phy_total) %>% 
+  head(15) %>% 
+  unnest() %>% ungroup() %>% 
+  group_by(Compartment, host_common_name, SampleID, study) %>% 
+  nest() %>% 
+  group_by(study, Compartment) %>% 
+  mutate(gamma_sum = map_dbl(data, ~sum(.x %>% filter(Phylum2 == "Gammaproteobacteria") %>% pull(sample_total)))) %>% 
+  arrange(gamma_sum) %>% 
+  mutate(order = 1:n()) %>%
+  unnest() %>% ungroup() %>% 
+  mutate(Compartment = fct_relevel(factor(Compartment), "Bulk Soil", "Rhizosphere", "Endosphere")) %>% 
+  ggplot(aes(order, sample_total, fill = Phylum2)) +
+  geom_bar(stat = "identity", width = 1, position = "stack") +
+  facet_grid(.~study + Compartment, scales = "free_x", space = "free") +
+  scale_fill_manual(values = c(brewer.pal(11, "RdGy"), brewer.pal(5, "Blues")[-1])) +
+  theme_minimal()
+```
+

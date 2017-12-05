@@ -123,23 +123,27 @@ grid.arrange(rs_vs_bs_plot, same_comps_plot, ncol = 2)
 ## Differentially abundant OTUs
 We see relatively large differences between "domesticated" and "wild" soils. Let's find the OTUs that explain these differences.
 ```{r}
-dom_deseq <- dExp %>% 
-  group_by(variable) %>% 
-  filter(sum(value > 0) / n() > 0.1) %>% 
-  mutate(group = paste(Compartment, From, sep = ".")) %>% 
-  group_by(group_var = "DESeq2", Experiment) %>% 
-  nest() %>% 
-  mutate(DGEL = map(data, ~suppressMessages(tidyDGEL(., value = "value", group_column = "group", method = "DESeq2", formula = "~ group")))) %>% 
-  mutate(dds = map(DGEL, ~suppressMessages(DESeq(.)))) %>% 
-  mutate(BulkSoil = map(dds, ~lfcShrink(., contrast = c("group", "Bulk Soil.A", "Bulk Soil.N")))) %>% 
-  mutate(Rhizosphere = map(dds, ~lfcShrink(., contrast = c("group", "Rhizosphere.A", "Rhizosphere.N")))) %>% 
-  mutate(Endosphere = map(dds, ~lfcShrink(., contrast = c("group", "Endosphere.A", "Endosphere.N")))) %>% 
-  dplyr::select(BulkSoil, Rhizosphere, Endosphere, Experiment) %>% 
-  gather(key = Compartment, value = results, -Experiment)
+## I'm going to run this, and then save the results to I don't have to do it again.
 
-dom_deseq %>% 
-  ungroup() %>% 
-  write_rds(path = "~/RMB/SoilDomestication/Data/domestication_deseq.rds")
+# dom_deseq <- dExp %>% 
+  # group_by(variable) %>% 
+  # filter(sum(value > 0) / n() > 0.1) %>% 
+  # mutate(group = paste(Compartment, From, sep = ".")) %>% 
+  # group_by(group_var = "DESeq2", Experiment) %>% 
+  # nest() %>% 
+  # mutate(DGEL = map(data, ~suppressMessages(tidyDGEL(., value = "value", group_column = "group", method = "DESeq2", formula = "~ group")))) %>% 
+  # mutate(dds = map(DGEL, ~suppressMessages(DESeq(.)))) %>% 
+  # mutate(BulkSoil = map(dds, ~lfcShrink(., contrast = c("group", "Bulk Soil.A", "Bulk Soil.N")))) %>% 
+  # mutate(Rhizosphere = map(dds, ~lfcShrink(., contrast = c("group", "Rhizosphere.A", "Rhizosphere.N")))) %>% 
+  # mutate(Endosphere = map(dds, ~lfcShrink(., contrast = c("group", "Endosphere.A", "Endosphere.N")))) %>% 
+  # dplyr::select(BulkSoil, Rhizosphere, Endosphere, Experiment) %>% 
+  # gather(key = Compartment, value = results, -Experiment)
+
+# dom_deseq %>% 
+  # ungroup() %>% 
+  # write_rds(path = "~/RMB/SoilDomestication/Data/domestication_deseq.rds")
+
+dom_deseq <- readRDS("~/RMB/SoilDomestication/Data/domestication_deseq.rds")
 ```
 
 ```{r}
