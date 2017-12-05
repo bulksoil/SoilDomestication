@@ -319,6 +319,31 @@ intersect_deseq %>%
   coord_flip() +
   scale_fill_manual(values = c("black", "#4DAF4A"))
 ```
+```{r}
+nUniverse <- nExp %>% 
+  inner_join(tax, by = "variable") %>% 
+  group_by(variable) %>% 
+  filter(sum(value > 0) / n() > 0.1) %>% 
+  dplyr::count(variable, Phylum2) %>% ungroup() %>% 
+  dplyr::count(Phylum2) %>% dplyr::rename(universe_phy = nn) %>% 
+  mutate(universe_size = sum(universe_phy))
+  
+intersect_deseq %>% 
+  inner_join(tax, by = "variable") %>% 
+  dplyr::count(Compartment, direction, Phylum2) %>% 
+  dplyr::rename(group_n = nnn) %>% 
+  ungroup() %>% 
+  group_by(Phylum2) %>%  
+  group_by(direction, Compartment) %>% 
+  mutate(group_size = sum(group_n)) %>% 
+  inner_join(nUniverse, by = "Phylum2") %>% 
+  mutate(phyp = phyper(group_n, universe_phy, universe_size - group_size, group_size, lower.tail = F)) %>% 
+  mutate(p.adj = p.adjust(phyp, "fdr")) %>% 
+  filter(p.adj <= 0.05) %>% 
+  filter(group_n > 2)
+```
+
+
 One of the prevailing phyla coming out as being specifically enriched in rice is Euryarachaeota, which contains methanogenic archaea. Let's go a big deeper here.
 ```{r}
 rice_specific_mathanogen_otus <- intersect_deseq %>% 
