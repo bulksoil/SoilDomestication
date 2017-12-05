@@ -37,6 +37,9 @@ tax <- readRDS("~/RMB/SoilDomestication/Data/gg_otus_tax.rds")
 ```{r}
 plant_cap <- tidy_cap(mExp %>% ungroup() %>% mutate(logRA = log2(RA * 1000 + 1)), value = "logRA", formula = "host_common_name")
 plant_pcoa <-  tidy_pcoa(mExp %>% ungroup() %>% mutate(logRA = log2(RA * 1000 + 1)), value = "logRA")
+
+write_rds(plant_cap, "~/RMB/SoilDomestication/Data/mPlant_cap.rds")
+write_rds(plant_pcoa, "~/RMB/SoilDomestication/Data/mPlant_pcoa.rds")
 ```
 
 ```{r}
@@ -78,9 +81,7 @@ mDist %>%
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
   scale_alpha_manual(values = c(0.05, 0.05, 0.05, 0.05, 1))
 ```
-```{r}
-dput(brewer.pal(7, "Set2")[-4])
-```
+
 
 
 ```{r}

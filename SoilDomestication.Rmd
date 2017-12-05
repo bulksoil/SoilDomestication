@@ -243,7 +243,7 @@ plot_tree(dom.physeq_Phy, color = "Phylum2", ladderize = "left")
 
 Do we find some phyla belonging to the categories more than expected? That is, for instance, do we find that deltoproteobacteria are enriched more in domesticated soils than we would expect by random chance?
 ```{r}
-dom_otus %>% 
+enriched_phyla <- dom_otus %>% 
   mutate(universe = nrow(.)) %>% 
   inner_join(tax, by = "variable") %>% 
   add_count(Phylum2) %>% dplyr::rename(phy_universe = n) %>% 
@@ -251,5 +251,17 @@ dom_otus %>%
   dplyr::count(universe, phy_universe, group_size, direction, Phylum2) %>% 
   mutate(phyp = phyper(n, group_size, universe - group_size, phy_universe, lower.tail = F)) %>% 
   filter(n > 3) %>% filter(phyp <= 0.05) %>% arrange(direction, phyp)
+
+enriched_phyla %>% 
+  mutate(statistic = -log10(phyp + 6e-15)) %>% 
+  mutate(statistic2 = ifelse(direction == "A", statistic, -statistic)) %>% 
+  mutate(Phylum2 = fct_reorder(factor(Phylum2), statistic2)) %>% 
+  mutate(text_position = ifelse(statistic > 10, 5, statistic + 0.5)) %>% 
+  ggplot(aes(Phylum2, statistic, fill = direction, label = Phylum2)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(x = Phylum2, y = text_position), angle = 90, hjust = 0) +
+  scale_fill_manual(values = c("dodgerblue", "goldenrod")) +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
 ```
 
