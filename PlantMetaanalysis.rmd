@@ -117,3 +117,18 @@ mPhy %>%
   theme_minimal()
 ```
 
+```{r}
+mPhy %>% 
+  mutate(study = relevel(factor(study), ref = "rice_edwards")) %>% 
+  group_by(Phylum2) %>% 
+  nest() %>% 
+  mutate(model = map(data, ~lm(log2(sample_total * 1000 + 1) ~ study, .))) %>% 
+  unnest(map(model, ~tidy(.))) %>% 
+  filter(term != "(Intercept)") %>% 
+  mutate(p.adj = p.adjust(p.value, "bon")) %>% 
+  filter(p.adj <= 0.01) %>% 
+  mutate(direction = ifelse(estimate > 0, "higher", "lower")) %>% 
+  filter(abs(estimate) > 2) %>% 
+  dplyr::count(term, direction)
+```
+

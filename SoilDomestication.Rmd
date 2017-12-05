@@ -262,6 +262,7 @@ enriched_phyla %>%
   geom_text(aes(x = Phylum2, y = text_position), angle = 90, hjust = 0) +
   scale_fill_manual(values = c("dodgerblue", "goldenrod")) +
   theme_minimal() +
+  labs(x = "") +
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
 ```
 
