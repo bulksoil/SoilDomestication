@@ -54,6 +54,41 @@ nPC$axes %>%
 ```{r}
 long_adonis(nExp %>% mutate(RA2 = log2((RA*1000) + 1)), value = "RA2", formula = "Compartment * host_common_name") %>% tidy()
 ```
+```{r}
+nExp %>% mutate(RA2 = log2((RA*1000) + 1)) %>% 
+  group_by(Compartment) %>% 
+  filter(Compartment != "Bulk Soil") %>% nest() %>% 
+  mutate(adon = map(data, ~long_adonis(., value = "RA2", formula = "host_common_name"))) %>% 
+  unnest(map(adon, ~tidy(.)))
+```
+```{r}
+a_div <- nExp %>% 
+  mutate(Compartment = fct_relevel(Compartment, "Bulk Soil", "Rhizosphere", "Endopshere")) %>% 
+  mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
+  group_by(Compartment, host_common_name, SampleID) %>% 
+  filter(RA > 0) %>% 
+  summarise(richness = sum(RA > 0), shannon = 2^(-sum(log2(RA) * RA))) 
+
+a_div %>% 
+  gather(key = metric, value = diversity, -c(Compartment, host_common_name, SampleID)) %>% 
+  group_by(Compartment, metric) %>% 
+  nest() %>% 
+  filter(Compartment != "Bulk Soil") %>% 
+  mutate(mod = map(data, ~aov(diversity ~ host_common_name, .))) %>% 
+  unnest(map(mod, ~tidy(TukeyHSD(.))))
+
+a_div %>% group_by(1) %>% nest() %>% 
+  mutate(mod = map(data, ~aov(richness ~ Compartment * host_common_name, .))) %>% 
+  unnest(map(mod, ~tidy(.)))
+
+a_div %>% 
+  ggplot(aes(Compartment, richness, color = host_common_name)) +
+  geom_point(position = position_jitterdodge(jitter.width = 0.2, jitter.height = 0)) +
+  scale_color_manual(values = c("#4DAF4A", "#FF7F00", "#984EA3", "#377EB8", "#E41A1C")) +
+  theme_minimal() +
+  labs(x = "", y = "Detectable OTUs") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1), legend.position = "none")
+```
 
 From the above PERMANOVA, host species does have a strong affect on the microbiome, but looking at the PCoA it is not clear whether the genotypic effect exists only because rice is so weird compared to the other plants.
 ```{r}
