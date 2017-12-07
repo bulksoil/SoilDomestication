@@ -148,17 +148,6 @@ Here we have the permanova results for how host species affects the microbiome w
 
 ## Phyla Stuff
 ```{r}
-library(MASS)
-phyla_abund <- nExp %>% 
-  inner_join(tax, by = "variable") %>% 
-  group_by(SampleID, Compartment, host_common_name, Phylum2, depth) %>% 
-  summarise(phy_total = sum(value)) %>% 
-  mutate(prop = (phy_total + 1) / (depth + 1)) %>% 
-  group_by(Compartment) %>% 
-  mutate(alpha = fitdistr(prop, dbeta, start = list(shape1 = 1, shape2 = 10))$estimate[1],
-         beta = fitdistr(prop, dbeta, start = list(shape1 = 1, shape2 = 10))$estimate[2]) %>% 
-  mutate(emp_estimate = (phy_total + alpha + 1) / (depth + 1 + alpha + beta))
-
 phyla_abund <- nExp %>% 
   inner_join(tax, by = "variable") %>% 
   group_by(SampleID, Compartment, host_common_name, Phylum2, depth) %>% 
@@ -196,7 +185,7 @@ Let's use beta regression to find phyla whose relative abundance is signficantly
 ```{r}
 library(betareg)
 safe_betareg <- possibly(betareg, NA_real_)
-nPhyModel <- phyla_abund %>% 
+nPhyModel_host <- phyla_abund %>% 
   ungroup() %>% 
   filter(Compartment != "Bulk Soil") %>% 
   mutate(host_common_name = relevel(factor(host_common_name), "Rice")) %>% 
@@ -205,7 +194,7 @@ nPhyModel <- phyla_abund %>%
   mutate(model = map(data, ~safe_betareg(prop ~ host_common_name, .))) %>% 
   unnest(map(model, ~tidy(.))) 
 
-nPhyModel %>% 
+nPhyModel_host %>% 
   filter(term != "(Intercept)" & term != "(phi)") %>% 
   group_by(Compartment) %>% 
   mutate(p.adj = p.adjust(p.value, "BH")) %>% 
@@ -214,7 +203,7 @@ nPhyModel %>%
   dplyr::count(direction, Compartment, Phylum2) %>% 
   filter(n == 3)
 
-nPhyModel %>% 
+nPhyModel_host %>% 
   filter(term != "(Intercept)" & term != "(phi)") %>% 
   group_by(Compartment) %>% 
   mutate(p.adj = p.adjust(p.value, "BH")) %>% 
@@ -227,67 +216,40 @@ nPhyModel %>%
 
 
 ```{r}
-phy_host_lm <- phyla_abund %>% 
-  group_by(Compartment, Phylum2) %>% 
-  filter(host_common_name != "Soil") %>% 
-  mutate(host_common_name = fct_relevel(host_common_name, "Rice", "Redstem", "Sedge", "Mudplantain")) %>% 
-  nest() %>% 
-  mutate(models = map(data, ~tidy(lm(log2(emp_estimate) ~ host_common_name, .)))) %>% 
-  unnest(models) %>% 
-  filter(term != "(Intercept)") %>% 
-  mutate(term = gsub("host_common_name", "", term)) %>% 
-  group_by(Compartment) %>% 
-  mutate(p.adj = p.adjust(p.value, "fdr"))
-
-phy_host_lm1 <- phyla_abund %>% 
-  group_by(Compartment, Phylum2) %>% 
-  filter(host_common_name != "Soil") %>% 
-  mutate(host_common_name = fct_relevel(host_common_name, "Rice", "Redstem", "Sedge", "Mudplantain")) %>% 
-  nest() %>% 
-  mutate(models = map(data, ~tidy(lm(log2(phy_total + 1) ~ host_common_name, .)))) %>% 
-  unnest(models) %>% 
-  filter(term != "(Intercept)") %>% 
-  mutate(term = gsub("host_common_name", "", term)) %>% 
-  group_by(Compartment) %>% 
-  mutate(p.adj = p.adjust(p.value, "fdr"))
-
-phy_comp_lm <- phyla_abund %>% 
+nPhyModel_compartment <- phyla_abund %>% 
+  ungroup() %>% 
+  mutate(Compartment = fct_relevel(factor(Compartment), "Bulk Soil", "Rhizosphere", "Endosphere")) %>% 
   group_by(Phylum2) %>% 
   nest() %>% 
-  mutate(models = map(data, ~tidy(lm(log2(emp_estimate) ~ Compartment, .)))) %>% 
-  unnest(models) %>% 
-  filter(term != "(Intercept)") %>% 
+  mutate(model = map(data, ~safe_betareg(prop ~ Compartment, .))) %>% 
+  unnest(map(model, ~tidy(.))) 
+
+nPhyModel_compartment %>% 
+  filter(term != "(Intercept)" & term != "(phi)") %>% 
   mutate(term = gsub("Compartment", "", term)) %>% 
-  mutate(p.adj = p.adjust(p.value, "bon"))
-
-phy_comp_lm %>% 
-  filter(p.adj <= 0.05) %>% 
-  mutate(Phylum2 = fct_reorder(factor(Phylum2), estimate)) %>% 
-  ggplot(aes(Phylum2, estimate)) +
-  geom_point() +
-  facet_grid(. ~ term)
-
-phy_comp_lm %>% 
-  inner_join(phyla_abund %>% group_by(Phylum2, Compartment) %>% summarise(mean_ab = mean(emp_estimate)), by = c(c("term" = "Compartment"), "Phylum2")) %>% 
+  mutate(p.adj = p.adjust(p.value, "BH")) %>% 
+  inner_join(phyla_abund %>% group_by(Phylum2, Compartment) %>% summarise(mean_ab = mean(prop)), by = c(c("term" = "Compartment"), "Phylum2")) %>% 
   mutate(Compartment = fct_relevel(term, "Rhizosphere", "Endosphere")) %>%
   ggplot(aes(Compartment, estimate, group = Phylum2, color = ifelse(p.adj <= 0.05, Compartment, "ns"), shape = ifelse(p.adj <= 0.05, "sig", "ns"), size = log2(mean_ab * 1000))) +
   geom_line(color = 'black', alpha = 0.5, size = 0.5) +
   geom_point(alpha = 0.5) +
   scale_shape_manual(values = c(1, 16)) +
-  scale_color_manual(values = c("darkmagenta", "steelblue", "black")) +
-  scale_size_continuous(range = c(0,10)) +
-  theme_minimal()
+  scale_color_manual(values = c("#DFC27D", "#80CDC1", "black")) +
+  #scale_color_manual(values = c("darkmagenta", "steelblue", "black")) +
+  scale_size_continuous(range = c(0,10), breaks = c(-4, 0, 4, 8)) +
+  theme_minimal() +
+  labs(x = "") +
+  theme(text = element_text(size = 12))
 
-phy_host_lm %>% 
-  filter(p.adj <= 0.05) %>% ungroup() %>% 
-  mutate(Compartment = fct_relevel(Compartment, "Rhizosphere", "Endosphere")) %>% 
-  ggplot(aes(Phylum2, term, fill = estimate)) +
-  geom_tile() +
-  facet_grid(Compartment~.) +
-  scale_fill_gradient2(low = "gold", high = "dodgerblue", mid = 'black') +
-  theme(axis.text.x = element_text(angle = 30, hjust = 1))
-  
-
+```
+```{r}
+nPhyModel_compartment %>% 
+  filter(term != "(Intercept)" & term != "(phi)") %>% 
+  mutate(term = gsub("Compartment", "", term)) %>% 
+  mutate(p.adj = p.adjust(p.value, "BH")) %>% ungroup() %>% 
+  add_count(term) %>% dplyr::rename(total_phy = n) %>% 
+  filter(p.adj <= 0.05) %>% mutate(direction = ifelse(estimate > 0, "higher", "lower")) %>% 
+  dplyr::count(term, total_phy, direction)
 ```
 
 
