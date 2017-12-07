@@ -242,15 +242,6 @@ nPhyModel_compartment %>%
   theme(text = element_text(size = 12))
 
 ```
-```{r}
-nPhyModel_compartment %>% 
-  filter(term != "(Intercept)" & term != "(phi)") %>% 
-  mutate(term = gsub("Compartment", "", term)) %>% 
-  mutate(p.adj = p.adjust(p.value, "BH")) %>% ungroup() %>% 
-  add_count(term) %>% dplyr::rename(total_phy = n) %>% 
-  filter(p.adj <= 0.05) %>% mutate(direction = ifelse(estimate > 0, "higher", "lower")) %>% 
-  dplyr::count(term, total_phy, direction)
-```
 
 
 ## Differential OTU Abundance
@@ -400,12 +391,13 @@ intersect_deseq %>%
 ```
 
 
-One of the prevailing phyla coming out as being specifically enriched in rice is Euryarachaeota, which contains methanogenic archaea. Let's go a big deeper here.
+One of the prevailing phyla coming out as being specifically enriched in rice is Euryarachaeota, which contains methanogenic archaea. Let's go a bit deeper here.
 ```{r}
 rice_specific_mathanogen_otus <- intersect_deseq %>% 
   inner_join(tax, by = "variable") %>% 
   filter(grepl("Methano", Family) & direction == "Rice") %>% 
-  dplyr::select(Compartment, variable)
+  dplyr::select(Compartment, variable) %>% 
+  inner_join(tax, by = "variable")
 
 methanogen_data <- nExp %>% 
   inner_join(tax, by = "variable") %>% 
@@ -429,6 +421,8 @@ mg_plot <- rbind(methanogen_data %>% filter(!variable%in%rice_specific_mathanoge
   theme_minimal() +
   theme(text = element_text(size = 12))
 ```
+
+
 What about methanotrophic eubacteria?
 ```{r}
 methanotroph_otus <- intersect_deseq %>% 
