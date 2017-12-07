@@ -50,6 +50,25 @@ nPC$axes %>%
        y = paste("PCo2 (", round(nPC$eigen_vals[2] * 100, 2), "%)", sep = "")) +
   theme(text = element_text(size = 12))
 ```
+```{r}
+nPC$axes %>% 
+  dplyr::select(SampleID, host_common_name, Compartment, MDS1:MDS5) %>% 
+  gather(key = Axis, value = value, -c(SampleID, host_common_name, Compartment)) %>% 
+  group_by(Axis) %>% filter(Compartment != "Bulk Soil") %>% 
+  nest() %>% 
+  mutate(mod = map(data, ~aov(value ~ Compartment + host_common_name, .))) %>% 
+  unnest(map(mod, ~tidy(.))) %>% 
+  filter(term == "host_common_name")
+
+nPC$axes %>% 
+  dplyr::select(SampleID, host_common_name, Compartment, MDS1:MDS5) %>% 
+  gather(key = Axis, value = value, -c(SampleID, host_common_name, Compartment)) %>% 
+  group_by(Axis) %>% filter(Compartment != "Bulk Soil" & host_common_name != "Rice") %>% 
+  nest() %>% 
+  mutate(mod = map(data, ~aov(value ~ Compartment + host_common_name, .))) %>% 
+  unnest(map(mod, ~tidy(.))) %>% 
+  filter(term == "host_common_name")
+```
 
 ```{r}
 long_adonis(nExp %>% mutate(RA2 = log2((RA*1000) + 1)), value = "RA2", formula = "Compartment * host_common_name") %>% tidy()
@@ -140,6 +159,12 @@ phyla_abund <- nExp %>%
          beta = fitdistr(prop, dbeta, start = list(shape1 = 1, shape2 = 10))$estimate[2]) %>% 
   mutate(emp_estimate = (phy_total + alpha + 1) / (depth + 1 + alpha + beta))
 
+phyla_abund <- nExp %>% 
+  inner_join(tax, by = "variable") %>% 
+  group_by(SampleID, Compartment, host_common_name, Phylum2, depth) %>% 
+  summarise(phy_total = sum(value)) %>% 
+  mutate(prop = (phy_total + 1) / (depth + 1))
+
 phyla_abund %>% 
   group_by(Phylum2) %>% 
   nest() %>% 
@@ -166,6 +191,40 @@ phyla_abund %>%
         legend.position = "bottom",
         text = element_text(size = 12))
 ```
+
+Let's use beta regression to find phyla whose relative abundance is signficantly different from rice. Betaregression requires that the dependent variable be in the [0,1] interval. If it's 0 or 1 it will not work. So the proportions that are being used here are calculated as (phylum counts within sample + 1) / (sequencing depth of sample + 1).
+```{r}
+library(betareg)
+safe_betareg <- possibly(betareg, NA_real_)
+nPhyModel <- phyla_abund %>% 
+  ungroup() %>% 
+  filter(Compartment != "Bulk Soil") %>% 
+  mutate(host_common_name = relevel(factor(host_common_name), "Rice")) %>% 
+  group_by(Phylum2, Compartment) %>% 
+  nest() %>% 
+  mutate(model = map(data, ~safe_betareg(prop ~ host_common_name, .))) %>% 
+  unnest(map(model, ~tidy(.))) 
+
+nPhyModel %>% 
+  filter(term != "(Intercept)" & term != "(phi)") %>% 
+  group_by(Compartment) %>% 
+  mutate(p.adj = p.adjust(p.value, "BH")) %>% 
+  filter(p.adj <= 0.05) %>% 
+  mutate(direction = ifelse(estimate > 0, "Other", "Rice")) %>% 
+  dplyr::count(direction, Compartment, Phylum2) %>% 
+  filter(n == 3)
+
+nPhyModel %>% 
+  filter(term != "(Intercept)" & term != "(phi)") %>% 
+  group_by(Compartment) %>% 
+  mutate(p.adj = p.adjust(p.value, "BH")) %>% 
+  filter(p.adj <= 0.05) %>% 
+  mutate(direction = ifelse(estimate > 0, "Other", "Rice")) %>% 
+  dplyr::count(direction, Compartment, Phylum2) %>% 
+  filter(n == 3) %>% 
+  dplyr::count(direction, Compartment)
+```
+
 
 ```{r}
 phy_host_lm <- phyla_abund %>% 
