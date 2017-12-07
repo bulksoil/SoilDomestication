@@ -40,11 +40,25 @@ First things first. What is the underlying structure of the data?
 dPC <- tidy_pcoa(dExp %>% mutate(RA = RA*1000), dist = "bray", value = "RA", keep_loadings = F)
 
 dPC$axes %>% 
-  ggplot(aes(MDS1, MDS2, color = From, shape = Experiment)) +
+  ggplot(aes(MDS1, MDS2, color = From)) +
   geom_point(size = 3, alpha = 0.7) +
   scale_color_manual(values = c("dodgerblue", "gold")) +
   theme_minimal() +
   labs(x = paste("PCo1 (", round(nPC$eigen_vals[1] * 100, 2), "%)", sep = ""), y = paste("PCo2 (", round(nPC$eigen_vals[2] * 100, 2), "%)", sep = ""))
+```
+
+```{r}
+dExp %>% 
+  mutate(logRA = log2(RA * 1000 + 1)) %>% 
+  long_adonis(., value = "logRA", formula = "Compartment * From + Experiment") %>% tidy(.)
+
+dExp %>% 
+  mutate(logRA = log2(RA * 1000 + 1)) %>% 
+  mutate(Compartment = fct_relevel(factor(Compartment), "Bulk Soil", "Rhizosphere", "Endosphere")) %>% 
+  group_by(Compartment) %>% 
+  nest() %>% 
+  mutate(adon = map(data, ~long_adonis(., value = "logRA", formula = "From + Experiment"))) %>% 
+  unnest(map(adon, ~tidy(.)))
 ```
 
 ## Comparing rhizosphere to bulk soil distances
@@ -98,7 +112,7 @@ same_comps <- d_dist %>%
 same_comps_plot <- same_comps %>% 
   ggplot(aes(Compartment.x, value)) +
   geom_jitter(width = 0.1, alpha = 0.7) +
-  geom_boxplot(alpha = 0, width = 0.7) +
+  geom_boxplot(alpha = 0, width = 0.3) +
   facet_wrap(~type) +
   scale_shape_manual(values = c(1,4)) +
   theme_minimal() +
