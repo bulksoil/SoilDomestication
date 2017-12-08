@@ -61,6 +61,24 @@ dExp %>%
   unnest(map(adon, ~tidy(.)))
 ```
 
+Let's compare the mena dispersion around the  centroid for every compartment and soil type. One could imagine that if rice is "domesticating" a soil, then the rice soils would have less variability than the wild soils because the rice soil is under a similar set of conditions while the wild soils might face more dissimilar conditions.
+```{r}
+dBetaDisp <- dExp %>% 
+  ungroup() %>% 
+  mutate(group = paste(From, Compartment, sep = "_")) %>% 
+  mutate(logRA = log2(RA * 1000 + 1)) %>% 
+  tidyMB::tidy_betadisper(., value = "logRA", group = "group")
+
+data.frame(group_var = dBetaDisp$group, distance = dBetaDisp$distances) %>% 
+  separate(group_var, into = c("Type", "Compartment"), sep = "_") %>% 
+  mutate(Compartment  = fct_relevel(factor(Compartment), "Bulk Soil", "Rhizosphere", "Endosphere")) %>% 
+  ggplot(., aes(x = Compartment, y = distance, color = Type)) +
+  geom_boxplot(alpha = 0) +
+  theme_minimal() +
+  labs(x = "", y = "Distance to centroid") +
+  scale_color_manual(values = c("dodgerblue", "goldenrod")) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1), text = element_text(size = 12))
+```
 ## Comparing rhizosphere to bulk soil distances
 Remember that result where the rice rhizosphere is significantly more similar to the bulk soil microbiome than the rhizosphere microbiomes from the native plants? One of the hypotheses that came from that was that rice may be "domesticating" the soil microbiome. If you go to rice field, you will quickly realize that those plants are growing so closely together that, at some point in the season, there all of the roots will overlap and the top layer of soil is only composed of rhizosphere. We can test this hypothesis by growing rice plants in soil from rice fields and soil from uncultivated sites. In order to support this hypothesis that rice is "domesticating" field soil, we need to show a few things. One is that the distance between rhizospehre and bulk soil is greater in the "wild" soils. The other is that the rhizospheres of rice plants growing in wild and domesticated soils are mmore similar than the bulk soils.
 ```{r}
@@ -279,4 +297,7 @@ enriched_phyla %>%
   labs(x = "") +
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
 ```
+
+
+
 
