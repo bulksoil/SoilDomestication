@@ -23,7 +23,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -37,14 +37,14 @@
      inkscape:pageopacity="0"
      inkscape:pageshadow="2"
      inkscape:window-width="2560"
-     inkscape:window-height="1440"
+     inkscape:window-height="1395"
      id="namedview13278"
      showgrid="false"
-     inkscape:zoom="1.262"
-     inkscape:cx="343.22363"
-     inkscape:cy="235.97497"
+     inkscape:zoom="2.524"
+     inkscape:cx="320.62367"
+     inkscape:cy="138.99356"
      inkscape:window-x="0"
-     inkscape:window-y="0"
+     inkscape:window-y="23"
      inkscape:window-maximized="0"
      inkscape:current-layer="svg13276"
      fit-margin-top="0"
@@ -21320,12 +21320,12 @@
   <text
      xml:space="preserve"
      style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.77664185px;line-height:1.25;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.42354012"
-     x="183.35132"
+     x="190.85132"
      y="276.87042"
      id="text85724-1"><tspan
        sodipodi:role="line"
        id="tspan85722-4"
-       x="183.35132"
+       x="190.85132"
        y="276.87042"
        style="font-size:6.77664185px;stroke-width:0.42354012">Endosphere</tspan></text>
   <text
@@ -21342,12 +21342,12 @@
   <text
      xml:space="preserve"
      style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.77664185px;line-height:1.25;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.42354012"
-     x="190.89101"
+     x="190.89102"
      y="262.10245"
      id="text85724-0"><tspan
        sodipodi:role="line"
        id="tspan85722-2"
-       x="190.89101"
+       x="190.89102"
        y="262.10245"
        style="font-size:6.77664185px;stroke-width:0.42354012">Bulk Soil</tspan></text>
 </svg>

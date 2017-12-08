@@ -14,7 +14,7 @@
    height="164.30161"
    id="svg2"
    version="1.1"
-   inkscape:version="0.48.5 r10040"
+   inkscape:version="0.92.2 (5c3e80d, 2017-08-06)"
    sodipodi:docname="figure2.svg">
   <defs
      id="defs4">
@@ -2736,17 +2736,17 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="1.4"
-     inkscape:cx="163.63777"
-     inkscape:cy="184.33831"
+     inkscape:zoom="7.9195959"
+     inkscape:cx="85.635684"
+     inkscape:cy="77.57603"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
-     inkscape:window-width="1276"
-     inkscape:window-height="756"
+     inkscape:window-width="2560"
+     inkscape:window-height="1395"
      inkscape:window-x="0"
-     inkscape:window-y="0"
-     inkscape:window-maximized="1"
+     inkscape:window-y="23"
+     inkscape:window-maximized="0"
      fit-margin-top="0"
      fit-margin-left="0"
      fit-margin-right="0"
@@ -4076,7 +4076,7 @@
            transform="translate(0,24)">
           <path
              transform="translate(26.142874,0)"
-             d="m -537.14287,378.79074 c 0,10.65121 -8.63451,19.28572 -19.28572,19.28572 -10.65121,0 -19.28571,-8.63451 -19.28571,-19.28572 0,-10.65121 8.6345,-19.28571 19.28571,-19.28571 10.65121,0 19.28572,8.6345 19.28572,19.28571 z"
+             d="m -537.14287,378.79074 a 19.285715,19.285715 0 0 1 -19.28572,19.28572 19.285715,19.285715 0 0 1 -19.28571,-19.28572 19.285715,19.285715 0 0 1 19.28571,-19.28571 19.285715,19.285715 0 0 1 19.28572,19.28571 z"
              sodipodi:ry="19.285715"
              sodipodi:rx="19.285715"
              sodipodi:cy="378.79074"
@@ -4085,22 +4085,22 @@
              style="fill:#e12427;fill-opacity:1;fill-rule:nonzero;stroke:none"
              sodipodi:type="arc" />
           <text
-             sodipodi:linespacing="125%"
              id="text4856"
              y="394.8967"
              x="-493.49698"
-             style="font-size:45px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+             style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
              xml:space="preserve"><tspan
                y="394.8967"
                x="-493.49698"
                id="tspan4858"
-               sodipodi:role="line">Soil</tspan></text>
+               sodipodi:role="line"
+               style="font-size:45px;line-height:1.25">Soil</tspan></text>
         </g>
         <g
            id="g4913"
            transform="translate(0,-10.952515)">
           <path
-             d="m -537.14287,378.79074 c 0,10.65121 -8.63451,19.28572 -19.28572,19.28572 -10.65121,0 -19.28571,-8.63451 -19.28571,-19.28572 0,-10.65121 8.6345,-19.28571 19.28571,-19.28571 10.65121,0 19.28572,8.6345 19.28572,19.28571 z"
+             d="m -537.14287,378.79074 a 19.285715,19.285715 0 0 1 -19.28572,19.28572 19.285715,19.285715 0 0 1 -19.28571,-19.28572 19.285715,19.285715 0 0 1 19.28571,-19.28571 19.285715,19.285715 0 0 1 19.28572,19.28571 z"
              sodipodi:ry="19.285715"
              sodipodi:rx="19.285715"
              sodipodi:cy="378.79074"
@@ -4110,22 +4110,22 @@
              sodipodi:type="arc"
              transform="translate(26.142874,80.889038)" />
           <text
-             sodipodi:linespacing="125%"
              id="text4856-2"
              y="471.32529"
              x="-495.58438"
-             style="font-size:45px;font-style:italic;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial Italic"
+             style="font-style:italic;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:'Arial Italic';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
              xml:space="preserve"><tspan
                y="471.32529"
                x="-495.58438"
                id="tspan4858-2"
-               sodipodi:role="line">Oryza sativa</tspan></text>
+               sodipodi:role="line"
+               style="font-size:45px;line-height:1.25">Oryza sativa</tspan></text>
         </g>
         <g
            id="g4918"
            transform="translate(0,-27.884094)">
           <path
-             d="m -537.14287,378.79074 c 0,10.65121 -8.63451,19.28572 -19.28572,19.28572 -10.65121,0 -19.28571,-8.63451 -19.28571,-19.28572 0,-10.65121 8.6345,-19.28571 19.28571,-19.28571 10.65121,0 19.28572,8.6345 19.28572,19.28571 z"
+             d="m -537.14287,378.79074 a 19.285715,19.285715 0 0 1 -19.28572,19.28572 19.285715,19.285715 0 0 1 -19.28571,-19.28572 19.285715,19.285715 0 0 1 19.28571,-19.28571 19.285715,19.285715 0 0 1 19.28572,19.28571 z"
              sodipodi:ry="19.285715"
              sodipodi:rx="19.285715"
              sodipodi:cy="378.79074"
@@ -4135,22 +4135,22 @@
              sodipodi:type="arc"
              transform="translate(26.142874,143.75717)" />
           <text
-             sodipodi:linespacing="125%"
              id="text4856-1"
              y="534.18243"
              x="-490.57462"
-             style="font-size:45px;font-style:italic;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial Italic"
+             style="font-style:italic;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:'Arial Italic';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
              xml:space="preserve"><tspan
                y="534.18243"
                x="-490.57462"
                id="tspan4858-6"
-               sodipodi:role="line">Ammania spp.</tspan></text>
+               sodipodi:role="line"
+               style="font-size:45px;line-height:1.25">Ammania coccinea</tspan></text>
         </g>
         <g
            id="g4923"
            transform="translate(0,-29.168335)">
           <path
-             d="m -537.14287,378.79074 c 0,10.65121 -8.63451,19.28572 -19.28572,19.28572 -10.65121,0 -19.28571,-8.63451 -19.28571,-19.28572 0,-10.65121 8.6345,-19.28571 19.28571,-19.28571 10.65121,0 19.28572,8.6345 19.28572,19.28571 z"
+             d="m -537.14287,378.79074 a 19.285715,19.285715 0 0 1 -19.28572,19.28572 19.285715,19.285715 0 0 1 -19.28571,-19.28572 19.285715,19.285715 0 0 1 19.28571,-19.28571 19.285715,19.285715 0 0 1 19.28572,19.28571 z"
              sodipodi:ry="19.285715"
              sodipodi:rx="19.285715"
              sodipodi:cy="378.79074"
@@ -4160,22 +4160,22 @@
              sodipodi:type="arc"
              transform="translate(26.142874,190.978)" />
           <text
-             sodipodi:linespacing="125%"
              id="text4856-4"
              y="585.61102"
              x="-493.36514"
-             style="font-size:45px;font-style:italic;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial Italic"
+             style="font-style:italic;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:'Arial Italic';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
              xml:space="preserve"><tspan
                y="585.61102"
                x="-493.36514"
                id="tspan4858-1"
-               sodipodi:role="line">Heteranthera limosa</tspan></text>
+               sodipodi:role="line"
+               style="font-size:45px;line-height:1.25">Heteranthera limosa</tspan></text>
         </g>
         <g
            id="g4928"
            transform="translate(0,-46)">
           <path
-             d="m -537.14287,378.79074 c 0,10.65121 -8.63451,19.28572 -19.28572,19.28572 -10.65121,0 -19.28571,-8.63451 -19.28571,-19.28572 0,-10.65121 8.6345,-19.28571 19.28571,-19.28571 10.65121,0 19.28572,8.6345 19.28572,19.28571 z"
+             d="m -537.14287,378.79074 a 19.285715,19.285715 0 0 1 -19.28572,19.28572 19.285715,19.285715 0 0 1 -19.28571,-19.28572 19.285715,19.285715 0 0 1 19.28571,-19.28571 19.285715,19.285715 0 0 1 19.28572,19.28571 z"
              sodipodi:ry="19.285715"
              sodipodi:rx="19.285715"
              sodipodi:cy="378.79074"
@@ -4185,54 +4185,54 @@
              sodipodi:type="arc"
              transform="translate(26.142874,253.74619)" />
           <text
-             sodipodi:linespacing="125%"
              id="text4856-18"
              y="644.18243"
              x="-495.56241"
-             style="font-size:45px;font-style:italic;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial Italic"
+             style="font-style:italic;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:'Arial Italic';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
              xml:space="preserve"><tspan
                y="644.18243"
                x="-495.56241"
                id="tspan4858-8"
-               sodipodi:role="line">Cyperus iria</tspan></text>
+               sodipodi:role="line"
+               style="font-size:45px;line-height:1.25">Cyperus iria</tspan></text>
         </g>
       </g>
       <text
-         transform="matrix(0.70710678,-0.70710678,0.70710678,0.70710678,0,0)"
-         sodipodi:linespacing="125%"
+         transform="rotate(-45)"
          id="text4955"
          y="-487.45975"
          x="-409.46896"
-         style="font-size:14px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
          xml:space="preserve"><tspan
            y="-487.45975"
            x="-409.46896"
            id="tspan4957"
-           sodipodi:role="line">Soil</tspan></text>
+           sodipodi:role="line"
+           style="font-size:14px;line-height:1.25">Soil</tspan></text>
       <text
-         transform="matrix(0.70710678,-0.70710678,0.70710678,0.70710678,0,0)"
-         sodipodi:linespacing="125%"
+         transform="rotate(-45)"
          id="text4955-9"
          y="-464.35782"
          x="-333.55212"
-         style="font-size:14px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
          xml:space="preserve"><tspan
            y="-464.35782"
            x="-333.55212"
            id="tspan4957-5"
-           sodipodi:role="line">Rhizosphere</tspan></text>
+           sodipodi:role="line"
+           style="font-size:14px;line-height:1.25">Rhizosphere</tspan></text>
       <text
-         transform="matrix(0.57447462,-0.81852239,0.81852239,0.57447462,0,0)"
-         sodipodi:linespacing="125%"
+         transform="rotate(-54.937152)"
          id="text4955-9-2"
          y="-361.44351"
          x="-231.57924"
-         style="font-size:14px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
          xml:space="preserve"><tspan
            y="-361.44351"
            x="-231.57924"
            id="tspan4957-5-9"
-           sodipodi:role="line">Endosphere</tspan></text>
+           sodipodi:role="line"
+           style="font-size:14px;line-height:1.25">Endosphere</tspan></text>
     </g>
     <g
        id="surface11"
@@ -14681,38 +14681,38 @@
       </g>
     </g>
     <text
-       sodipodi:linespacing="125%"
        id="text4955-7"
        y="7.5279374"
        x="-459.46744"
-       style="font-size:6.0560627px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
        xml:space="preserve"><tspan
          y="7.5279374"
          x="-459.46744"
          id="tspan4957-4"
-         sodipodi:role="line">Soil</tspan></text>
+         sodipodi:role="line"
+         style="font-size:6.05606318px;line-height:1.25">Soil</tspan></text>
     <text
-       sodipodi:linespacing="125%"
        id="text4955-9-26"
        y="7.5279374"
        x="-429.06345"
-       style="font-size:6.0560627px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
        xml:space="preserve"><tspan
          y="7.5279374"
          x="-429.06345"
          id="tspan4957-5-5"
-         sodipodi:role="line">Rhizosphere</tspan></text>
+         sodipodi:role="line"
+         style="font-size:6.05606318px;line-height:1.25">Rhizosphere</tspan></text>
     <text
-       sodipodi:linespacing="125%"
        id="text4955-9-2-1"
        y="7.5279374"
        x="-385.84503"
-       style="font-size:6.0560627px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
        xml:space="preserve"><tspan
          y="7.5279374"
          x="-385.84503"
          id="tspan4957-5-9-6"
-         sodipodi:role="line">Endosphere</tspan></text>
+         sodipodi:role="line"
+         style="font-size:6.05606318px;line-height:1.25">Endosphere</tspan></text>
     <g
        id="g30598"
        transform="matrix(0.10067309,0,0,0.10067309,-519.2157,153.5886)">
@@ -14756,59 +14756,59 @@
            y="-44.663479" />
         <text
            xml:space="preserve"
-           style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
            x="369.11765"
            y="-274.97824"
-           id="text29641"
-           sodipodi:linespacing="125%"><tspan
+           id="text29641"><tspan
              sodipodi:role="line"
              id="tspan29643"
              x="369.11765"
-             y="-274.97824">Acidobacteria</tspan></text>
+             y="-274.97824"
+             style="font-size:48px;line-height:1.25">Acidobacteria</tspan></text>
         <text
            xml:space="preserve"
-           style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
            x="369.11765"
            y="-206.60895"
-           id="text29641-4"
-           sodipodi:linespacing="125%"><tspan
+           id="text29641-4"><tspan
              sodipodi:role="line"
              id="tspan29643-3"
              x="369.11765"
-             y="-206.60895">Actinobacteria</tspan></text>
+             y="-206.60895"
+             style="font-size:48px;line-height:1.25">Actinobacteria</tspan></text>
         <text
            xml:space="preserve"
-           style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
            x="369.11765"
            y="-138.23965"
-           id="text29641-7"
-           sodipodi:linespacing="125%"><tspan
+           id="text29641-7"><tspan
              sodipodi:role="line"
              id="tspan29643-1"
              x="369.11765"
-             y="-138.23965">Armatimonadetes</tspan></text>
+             y="-138.23965"
+             style="font-size:48px;line-height:1.25">Armatimonadetes</tspan></text>
         <text
            xml:space="preserve"
-           style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
            x="365.53171"
            y="-69.870369"
-           id="text29641-5"
-           sodipodi:linespacing="125%"><tspan
+           id="text29641-5"><tspan
              sodipodi:role="line"
              id="tspan29643-34"
              x="365.53171"
-             y="-69.870369">Bacteroidetes</tspan></text>
+             y="-69.870369"
+             style="font-size:48px;line-height:1.25">Bacteroidetes</tspan></text>
         <text
            xml:space="preserve"
-           style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
            x="366.65671"
            y="-1.5010773"
-           id="text29641-1"
-           sodipodi:linespacing="125%"><tspan
+           id="text29641-1"><tspan
              sodipodi:role="line"
              id="tspan29643-7"
              x="366.65671"
-             y="-1.5010773">Chloroflexi</tspan></text>
+             y="-1.5010773"
+             style="font-size:48px;line-height:1.25">Chloroflexi</tspan></text>
       </g>
       <g
          id="g29718-9"
@@ -14850,59 +14850,59 @@
            y="-44.663479" />
         <text
            xml:space="preserve"
-           style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
            x="369.11765"
            y="-274.97824"
-           id="text29641-3"
-           sodipodi:linespacing="125%"><tspan
+           id="text29641-3"><tspan
              sodipodi:role="line"
              id="tspan29643-6"
              x="369.11765"
-             y="-274.97824">Cyanobacteria</tspan></text>
+             y="-274.97824"
+             style="font-size:48px;line-height:1.25">Cyanobacteria</tspan></text>
         <text
            xml:space="preserve"
-           style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
            x="369.11765"
            y="-206.60895"
-           id="text29641-4-4"
-           sodipodi:linespacing="125%"><tspan
+           id="text29641-4-4"><tspan
              sodipodi:role="line"
              id="tspan29643-3-1"
              x="369.11765"
-             y="-206.60895">Euryarchaeota</tspan></text>
+             y="-206.60895"
+             style="font-size:48px;line-height:1.25">Euryarchaeota</tspan></text>
         <text
            xml:space="preserve"
-           style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
            x="369.11765"
            y="-138.23965"
-           id="text29641-7-2"
-           sodipodi:linespacing="125%"><tspan
+           id="text29641-7-2"><tspan
              sodipodi:role="line"
              id="tspan29643-1-2"
              x="369.11765"
-             y="-138.23965">Firmicutes</tspan></text>
+             y="-138.23965"
+             style="font-size:48px;line-height:1.25">Firmicutes</tspan></text>
         <text
            xml:space="preserve"
-           style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
            x="365.53171"
            y="-69.870369"
-           id="text29641-5-2"
-           sodipodi:linespacing="125%"><tspan
+           id="text29641-5-2"><tspan
              sodipodi:role="line"
              id="tspan29643-34-9"
              x="365.53171"
-             y="-69.870369">Gemmatimonadetes</tspan></text>
+             y="-69.870369"
+             style="font-size:48px;line-height:1.25">Gemmatimonadetes</tspan></text>
         <text
            xml:space="preserve"
-           style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
            x="366.65671"
            y="-1.5010773"
-           id="text29641-1-8"
-           sodipodi:linespacing="125%"><tspan
+           id="text29641-1-8"><tspan
              sodipodi:role="line"
              id="tspan29643-7-7"
              x="366.65671"
-             y="-1.5010773">Planctomycetes</tspan></text>
+             y="-1.5010773"
+             style="font-size:48px;line-height:1.25">Planctomycetes</tspan></text>
       </g>
       <g
          id="g29718-3"
@@ -14944,59 +14944,59 @@
            y="-44.663479" />
         <text
            xml:space="preserve"
-           style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
            x="369.11765"
            y="-274.97824"
-           id="text29641-18"
-           sodipodi:linespacing="125%"><tspan
+           id="text29641-18"><tspan
              sodipodi:role="line"
              id="tspan29643-9"
              x="369.11765"
-             y="-274.97824">Verrucomicrobia</tspan></text>
+             y="-274.97824"
+             style="font-size:48px;line-height:1.25">Verrucomicrobia</tspan></text>
         <text
            xml:space="preserve"
-           style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
            x="369.11765"
            y="-206.60895"
-           id="text29641-4-9"
-           sodipodi:linespacing="125%"><tspan
+           id="text29641-4-9"><tspan
              sodipodi:role="line"
              id="tspan29643-3-7"
              x="369.11765"
-             y="-206.60895">Alphaproteobacteria</tspan></text>
+             y="-206.60895"
+             style="font-size:48px;line-height:1.25">Alphaproteobacteria</tspan></text>
         <text
            xml:space="preserve"
-           style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
            x="369.11765"
            y="-138.23965"
-           id="text29641-7-0"
-           sodipodi:linespacing="125%"><tspan
+           id="text29641-7-0"><tspan
              sodipodi:role="line"
              id="tspan29643-1-8"
              x="369.11765"
-             y="-138.23965">Betaproteobacteria</tspan></text>
+             y="-138.23965"
+             style="font-size:48px;line-height:1.25">Betaproteobacteria</tspan></text>
         <text
            xml:space="preserve"
-           style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
            x="365.53171"
            y="-69.870369"
-           id="text29641-5-4"
-           sodipodi:linespacing="125%"><tspan
+           id="text29641-5-4"><tspan
              sodipodi:role="line"
              id="tspan29643-34-6"
              x="365.53171"
-             y="-69.870369">Deltaproteobacteria</tspan></text>
+             y="-69.870369"
+             style="font-size:48px;line-height:1.25">Deltaproteobacteria</tspan></text>
         <text
            xml:space="preserve"
-           style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Arial;-inkscape-font-specification:Arial"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:Arial;-inkscape-font-specification:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
            x="366.65671"
            y="-1.5010773"
-           id="text29641-1-3"
-           sodipodi:linespacing="125%"><tspan
+           id="text29641-1-3"><tspan
              sodipodi:role="line"
              id="tspan29643-7-78"
              x="366.65671"
-             y="-1.5010773">Gammaproteobacteria</tspan></text>
+             y="-1.5010773"
+             style="font-size:48px;line-height:1.25">Gammaproteobacteria</tspan></text>
       </g>
     </g>
   </g>
