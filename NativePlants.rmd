@@ -493,7 +493,6 @@ mg_mt_ratios %>%
   unnest(map(model, ~tidy(TukeyHSD(.)))) %>% 
   filter(adj.p.value <= 0.05)
 
-mg_mt_ratios %>% arrange(ratio)
 ```
 
 
