@@ -27,8 +27,8 @@ library(DESeq2)
   # group_by(variable) %>% 
   # filter(sum(value) > 0) %>% 
   # dplyr::select(-From, - Site, -LatinName, -host_subject_id) %>% 
-  # saveRDS("~/RMB/SoilDomestication/Data/ma_data.rds") %>% 
   # filter(!Compartment%in%c("fresh water", "Grapes", "Leaves", "Rhizoplane"))
+  # saveRDS("~/RMB/SoilDomestication/Data/ma_data.rds")
 
 mExp <- readRDS("~/RMB/SoilDomesticationData/ma_data.rds") %>% filter(!Compartment%in%c("fresh water", "Grapes", "Leaves", "Rhizoplane"))
 tax <- readRDS("~/RMB/SoilDomestication/Data/gg_otus_tax.rds")

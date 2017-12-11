@@ -529,3 +529,15 @@ bs_dists %>%
 From this ANOVA result, it looks like rice rhizosphere microbiomes are significantly more similar to the bulk soil microbiome than the other plant species.
 
 
+```{r}
+combo_pcoa <- bind_rows(mExp, nExp) %>% 
+  ungroup() %>% 
+  mutate(logRA = log2(RA*1000 + 1)) %>% 
+  tidy_pcoa(value = "logRA")
+
+combo_pcoa$axes %>% 
+  mutate(study = ifelse(study == "domestication", paste(study, host_common_name), study)) %>% 
+  ggplot(aes(MDS1, MDS2, color = study)) +
+  geom_point()
+```
+
