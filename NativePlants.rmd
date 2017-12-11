@@ -38,7 +38,7 @@ raref <- function(x, sampling_depth, value = "value", otus = "variable") {
 
 
 ```{r} 
-nPC <- tidy_pcoa(nExp %>% group_by(variable) %>% filter(sum(value) > 0) %>% mutate(RA = RA*1000), dist = "bray", value = "RA", keep_loadings = T)
+nPC <- tidy_pcoa(nExp %>% group_by(variable) %>% filter(sum(value) > 0) %>% mutate(logRA = log2(RA*1000 + 1)), dist = "bray", value = "logRA", keep_loadings = T)
 
 nPC$axes %>% 
   ggplot(aes(MDS1, MDS2, color = host_common_name)) +
@@ -530,14 +530,21 @@ From this ANOVA result, it looks like rice rhizosphere microbiomes are significa
 
 
 ```{r}
-combo_pcoa <- bind_rows(mExp, nExp) %>% 
+combo_pcoa <- bind_rows(nExp, mExp) %>% 
   ungroup() %>% 
-  mutate(logRA = log2(RA*1000 + 1)) %>% 
-  tidy_pcoa(value = "logRA")
+  mutate(logRA = log2(RA*1000 + 1)) %>% ungroup() %>% 
+  tidy_pcoa(., value = "logRA")
 
 combo_pcoa$axes %>% 
-  mutate(study = ifelse(study == "domestication", paste(study, host_common_name), study)) %>% 
-  ggplot(aes(MDS1, MDS2, color = study)) +
-  geom_point()
+  mutate(alph = ifelse(study == "domestication", 1, 0.1)) %>% 
+  mutate(study = relevel(factor(study), ref = "domestication")) %>% 
+  ggplot(aes(-MDS1, -MDS2, color = study, alpha = alph)) +
+  geom_point() +
+  theme_minimal() +
+  scale_color_manual(values = c("black", brewer.pal(7, "Set2")[-4])) +
+  labs(x = "MDS 1", y = "MDS 2") +
+  guides(alpha = FALSE)
+  
+
 ```
 
