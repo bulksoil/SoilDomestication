@@ -544,7 +544,5 @@ combo_pcoa$axes %>%
   scale_color_manual(values = c("black", brewer.pal(7, "Set2")[-4])) +
   labs(x = "MDS 1", y = "MDS 2") +
   guides(alpha = FALSE)
-  
-
 ```
 
