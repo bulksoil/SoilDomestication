@@ -1,0 +1,136 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(broom)
+library(lme4)
+```
+```{r}
+seedling_data <- read_tsv("~/RMB/SoilDomestication/Data/seedling_vigor.tsv")
+```
+
+```{r}
+seedling_data <- seedling_data %>% 
+  mutate(Trt = gsub("\\(-\\)", "-", Trt)) %>% 
+  mutate(Trt = gsub("\\(+\\)", "+", Trt)) %>% 
+  mutate(Type = ifelse(endsWith(Soil, "A"), "Domesticated", "Wild")) %>% 
+  mutate(BinNumber = factor(BinNumber))
+
+seedling_data %>% 
+  ggplot(aes(Type, Height, color = Trt, shape = Soil)) +
+  geom_point(position = position_jitterdodge(jitter.width = 0.1))
+```
+
+```{r}
+library(nlme)
+seedling_data %>% 
+  group_by(Trt) %>% 
+  nest() %>% 
+  mutate(lm_mod = map(data, ~lm(Mass ~ Soil, .))) %>% 
+  unnest(map(lm_mod, ~tidy(.)))
+
+seedling_data %>% 
+  group_by(Trt) %>% 
+  nest() %>% 
+  mutate(lm_mod = map(data, ~lm(Height ~ Soil, .))) %>% 
+  unnest(map(lm_mod, ~tidy(.)))
+
+j <- aov(Mass ~ Type * Trt, data = seedling_data)
+TukeyHSD(j)
+
+j <- lme(Mass ~ Type * Trt, random=~1|Soil, data = seedling_data)
+summary(j)
+```
+
+```{r}
+library(vegan)
+library(reshape2)
+library(tidyMB)
+```
+```{r}
+tax <- read_rds("~/RMB/Reference/gg_otus_tax.rds")
+vOTU <- t(read.table("~/RMB/SoilDomestication/Data/vigor_otu_table.tsv", header = T, row.names = 1))
+vMap <- read.table("~/RMB/SoilDomestication/Data/vigor.map", header = T)
+vMap <- vMap[match(row.names(vOTU), vMap$SampleID),]
+vData <- melt(cbind(vMap, vOTU), id.vars = names(vMap)) %>% 
+  inner_join(tax, by = "variable") %>% 
+  filter(Class != "Chloroplast") %>% 
+  filter(Family != "Mitochondria") %>% 
+  select(-Kingdom, -Phylum, -Class, -Order, -Genus, -Species, -Phylum2, -Family)
+```
+
+```{r}
+vData %>% 
+  group_by(SampleID, Compartment) %>% 
+  summarise(depth = sum(value)) %>% 
+  ggplot(aes(depth, fill = Compartment)) +
+  geom_histogram() +
+  facet_grid(.~Compartment)
+```
+
+```{r}
+vData <- vData %>% 
+  group_by(SampleID) %>% 
+  mutate(Depth = sum(value), RA = (value / Depth) * 1000) %>%
+  group_by(variable) %>% 
+  filter(sum(value > 0) / n() > 0.05)
+```
+
+```{r}
+pc <- tidy_pcoa(vData %>% mutate(logRA = log2(RA + 1)), value = "logRA")
+pc$axes %>% 
+  ggplot(aes(MDS2, MDS3, color = Soil)) +
+  geom_point()
+```
+
+```{r}
+vDis <- tidyMB::long_distance(vData %>% mutate(logRA = log2(RA + 1)), value = "logRA")
+
+pre_between <- vDis %>%
+  filter(Soil.x == Soil.y) %>%
+  filter(Status.x == "Pre" | Status.y == "Pre") %>% 
+  filter(Status.x != Status.y) %>% 
+  mutate(thing = gsub("Pre", "", paste(Status.x, Status.y, sep = ""))) %>% 
+  filter(Compartment.x == Compartment.y) 
+
+pre_within <- vDis %>%
+  filter(Soil.x == Soil.y) %>%
+  filter(Status.x == "Pre" & Status.y == "Pre") %>% 
+  filter(Compartment.x == Compartment.y) %>% 
+  mutate(thing = "Between")
+
+bind_rows(pre_between, pre_within) %>% 
+  mutate(thing = gsub("\\-", "Sterile vs. Inoculum", thing),
+         thing = gsub("\\+", "Inoculated vs. Inoculum", thing),
+         thing = gsub("Between", "Inoculum vs. Inoculum", thing)) %>% 
+  mutate(thing = fct_reorder(factor(thing), value)) %>% 
+  ggplot(aes(x = 1, y = value, fill = thing)) +
+  geom_boxplot(outlier.size = 0.1) +
+  facet_grid(.~Soil.x) +
+  labs(x = "", y = "Bray dissimilarity", fill = "Treatment") +
+  scale_fill_brewer(palette = "Set2") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+```
+
+```{r}
+vDis %>% 
+  filter(Status.x != "Pre") %>% 
+  filter(Status.y != "Pre") %>% 
+  filter(Status.x == Status.y) %>% 
+  filter(Soil.x != Soil.y) %>% 
+  filter(Compartment.x == Compartment.y) %>% 
+  ggplot(aes(Status.x, y = value, color = Status.x)) +
+  geom_point(position = position_jitter(width = 0.1)) +
+  geom_boxplot(alpha = 0.0) +
+  facet_grid(.~Compartment.x)
+```
+
+
+
+
+
