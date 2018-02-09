@@ -77,13 +77,36 @@ vData <- vData %>%
   mutate(Depth = sum(value), RA = (value / Depth) * 1000) %>%
   group_by(variable) %>% 
   filter(sum(value > 0) / n() > 0.05)
+
+write_rds(vData, "~/RMB/SoilDomestication/Data/vigor_data.rds")
+vData <- read_rds("~/RMB/SoilDomestication/Data/vigor_data.rds")
 ```
 
 ```{r}
 pc <- tidy_pcoa(vData %>% mutate(logRA = log2(RA + 1)), value = "logRA")
 pc$axes %>% 
-  ggplot(aes(MDS2, MDS3, color = Soil)) +
-  geom_point()
+  ggplot(aes(MDS1, MDS2, color = Soil, shape = Status)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c("dodgerblue", "gold", "dodgerblue", "gold")) +
+  theme_minimal()
+```
+```{r}
+vData %>% 
+  mutate(logRA = log2(RA + 1)) %>% 
+  #filter(Status != "Pre") %>% 
+  group_by(Status, Compartment) %>% 
+  nest() %>% 
+  mutate(ad = map(data, ~long_adonis(., value = "logRA", formula = "Soil"))) %>% 
+  unnest(map(ad, ~tidy(.))) %>% 
+  filter(term == "Soil") %>% 
+  mutate(Compartment = fct_relevel(Compartment, "Soil", "Rhizosphere", "Endosphere")) %>% 
+  ggplot(aes(paste(Status, Compartment), R2, fill = Status)) +
+  geom_bar(stat = "identity") +
+  labs(y = "Soil R2", x = "") +
+  facet_grid(.~Compartment, scales = "free_x", space = "free_x") +
+  scale_fill_manual(values = c("grey50", "darkseagreen", "mediumpurple1")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
 ```
 
 ```{r}
@@ -130,6 +153,123 @@ vDis %>%
   facet_grid(.~Compartment.x)
 ```
 
+
+```{r}
+library(stringr)
+library(DESeq2)
+library(biobroom)
+vDE <- vData %>% 
+  group_by(variable) %>% 
+  filter(sum(value > 0) / n() >= 0.1) %>% 
+  filter(Status != "Pre") %>% 
+  mutate(group = factor(paste(Compartment, Soil, sep = "."))) %>% 
+  group_by(Status) %>% 
+  nest() %>% 
+  mutate(DGEL = map(data, ~suppressMessages(tidyDGEL(., method = "DESeq2", value = "value", group_column = "group", formula = "~ group")))) %>% 
+  mutate(dds = map(DGEL, ~suppressMessages(DESeq(.)))) %>% 
+  mutate(BulkSoil_ArbA_ArbN = map(dds, ~lfcShrink(., contrast = c("group", "Soil.ArbA", "Soil.ArbN")))) %>% 
+  mutate(BulkSoil_ArbA_SacN = map(dds, ~lfcShrink(., contrast = c("group", "Soil.ArbA", "Soil.SacN")))) %>% 
+  mutate(BulkSoil_BiggsA_ArbN = map(dds, ~lfcShrink(., contrast = c("group", "Soil.BiggsA", "Soil.ArbN")))) %>% 
+  mutate(BulkSoil_BiggsA_SacN = map(dds, ~lfcShrink(., contrast = c("group", "Soil.BiggsA", "Soil.SacN")))) %>% 
+  mutate(Rhizosphere_ArbA_ArbN = map(dds, ~lfcShrink(., contrast = c("group", "Rhizosphere.ArbA", "Rhizosphere.ArbN")))) %>% 
+  mutate(Rhizosphere_ArbA_SacN = map(dds, ~lfcShrink(., contrast = c("group", "Rhizosphere.ArbA", "Rhizosphere.SacN")))) %>% 
+  mutate(Rhizosphere_BiggsA_ArbN = map(dds, ~lfcShrink(., contrast = c("group", "Rhizosphere.BiggsA", "Rhizosphere.ArbN")))) %>% 
+  mutate(Rhizosphere_BiggsA_SacN = map(dds, ~lfcShrink(., contrast = c("group", "Rhizosphere.BiggsA", "Rhizosphere.SacN")))) %>%
+  mutate(Endosphere_ArbA_ArbN = map(dds, ~lfcShrink(., contrast = c("group", "Endosphere.ArbA", "Endosphere.ArbN")))) %>% 
+  mutate(Endosphere_ArbA_SacN = map(dds, ~lfcShrink(., contrast = c("group", "Endosphere.ArbA", "Endosphere.SacN")))) %>% 
+  mutate(Endosphere_BiggsA_ArbN = map(dds, ~lfcShrink(., contrast = c("group", "Endosphere.BiggsA", "Endosphere.ArbN")))) %>% 
+  mutate(Endosphere_BiggsA_SacN = map(dds, ~lfcShrink(., contrast = c("group", "Endosphere.BiggsA", "Endosphere.SacN")))) %>% 
+  dplyr::select(BulkSoil_ArbA_ArbN, BulkSoil_ArbA_SacN, BulkSoil_BiggsA_ArbN, BulkSoil_BiggsA_SacN,
+                Rhizosphere_ArbA_ArbN, Rhizosphere_ArbA_SacN, Rhizosphere_BiggsA_ArbN, Rhizosphere_BiggsA_SacN,
+                Endosphere_ArbA_ArbN, Endosphere_ArbA_SacN, Endosphere_BiggsA_ArbN, Endosphere_BiggsA_SacN, Status) %>% 
+  gather(key = Comparison, value = results, -Status)
+
+write_rds(vDE, "~/RMB/SoilDomestication/Data/vigorDA.rds")
+```
+
+How many OTUs are DA across the soil treatments (sterilized vs not sterilized)?
+```{r}
+vDE %>% 
+  unnest(map(results, ~tidy(.))) %>% 
+  separate(Comparison, into = c("Compartment", "Soil1", "Soil2"), sep = "_") %>% 
+  mutate(direction = ifelse(estimate > 0, "A", "N")) %>% 
+  filter(p.adjusted <= 0.01) %>% ungroup() %>% 
+  dplyr::count(Compartment, Status, gene, direction) %>% 
+  filter(n == 4) %>% 
+  dplyr::count(Compartment, Status, direction) %>% 
+  mutate(group = factor(paste(Compartment, Status))) %>% 
+  mutate(group = fct_relevel(group, "BulkSoil -", "BulkSoil +", "Rhizosphere -", "Rhizosphere +",
+                             "Endosphere -", "Endosphere +")) %>% 
+  ggplot(aes(group, nn, fill = Status)) +
+  geom_bar(stat = "identity", width = 0.9) +
+  scale_fill_manual(values = c("grey50", "darkseagreen")) +
+  theme_minimal() +
+  labs(x = "", y = "Differentially Abundant OTUs Between Wild and Domesticated Soils") +
+  theme(axis.text.x = element_text(angle =  30, hjust = 1), text = element_text(size = 12),
+        legend.position = "none") 
+```
+
+```{r}
+vDE %>% 
+  unnest(map(results, ~tidy(.))) %>% 
+  separate(Comparison, into = c("Compartment", "Soil1", "Soil2"), sep = "_") %>% 
+  mutate(direction = ifelse(estimate > 0, "A", "N")) %>% 
+  filter(p.adjusted <= 0.05) %>% ungroup() %>% 
+  dplyr::count(Compartment, Status, gene, direction) %>% 
+  filter(n == 4) %>% 
+  inner_join(tax, by = c("gene" = "variable")) %>% 
+  dplyr::count(Compartment, Status, direction, Phylum2) %>% 
+  mutate(Compartment = fct_relevel(Compartment, "BulkSoil", "Rhizosphere", "Endosphere")) %>% 
+  ggplot(aes(Compartment, y = nn, fill = Phylum2)) +
+  geom_bar(stat = "identity") +
+  facet_grid(.~Status + direction, scales = "free_x") +
+  #scale_fill_manual(values = c(brewer.pal(11, "Spectral"), brewer.pal(5, "Blues"))) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+```{r}
+np_deseq <- read_rds("~/RMB/SoilDomestication/Data/weeds_deseq.rds")
+rice_otus <- np_deseq %>% 
+  unnest(map(results, ~tidy(.))) %>% 
+  separate(taxon, sep = "_", into = c("Taxon", "Compartment")) %>% 
+  mutate(direction = ifelse(estimate < 0, "Weed", "Rice")) %>% 
+  filter(p.adjusted <= 0.05) %>% 
+  dplyr::count(direction, Compartment, gene) %>% 
+  dplyr::add_count(direction, Compartment) %>% 
+  filter(n == 3) %>% 
+  mutate(Compartment = gsub("ES", "Endosphere", Compartment),
+         Compartment = gsub("RS", "Rhizosphere", Compartment)) %>% 
+  dplyr::rename(variable = gene) %>% 
+  filter(direction == "Rice") %>% 
+  dplyr::count(variable)
+
+dom_deseq <- readRDS("~/RMB/SoilDomestication/Data/domestication_deseq.rds")
+dom_otus <- dom_deseq %>% 
+  unnest(map(results, ~tidy(.))) %>% 
+  group_by(Experiment, Compartment) %>% 
+  mutate(direction = ifelse(estimate > 0, "A", "N")) %>% 
+  filter(p.adjusted <= 0.05) %>% ungroup() %>% 
+  dplyr::count(direction, Compartment, gene) %>% 
+  filter(n == 2) %>% 
+  dplyr::count(direction, gene, Compartment) %>% 
+  dplyr::rename(variable = gene) %>% 
+  filter(direction == "A") %>% 
+  dplyr::count(variable)
+  
+A_otus <- vDE %>% 
+  unnest(map(results, ~tidy(.))) %>% 
+  separate(Comparison, into = c("Compartment", "Soil1", "Soil2"), sep = "_") %>% 
+  mutate(direction = ifelse(estimate > 0, "A", "N")) %>% 
+  filter(p.adjusted <= 0.05) %>% ungroup() %>% 
+  dplyr::count(Compartment, Status, gene, direction) %>% 
+  filter(n == 4 & direction == "A" & Status == "+") %>% 
+  dplyr::count(gene)
+
+A_overlap <- intersect(rice_otus$variable, A_otus$gene)
+dom_overlap <- intersect(rice_otus$variable, dom_otus$variable)
+dov_v_vig_overlap <- intersect(dom_otus$variable, A_otus$gene)
+length(intersect(A_overlap, dom_overlap))
+```
 
 
 
