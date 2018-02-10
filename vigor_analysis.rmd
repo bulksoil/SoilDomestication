@@ -1,12 +1,13 @@
 ---
-title: "R Notebook"
+title: "Seedling Vigor Microbiome Analysis"
 output: html_notebook
 ---
 
 ```{r}
 library(tidyverse)
 library(broom)
-library(lme4)
+library(nlme)
+library(multcomp)
 ```
 ```{r}
 seedling_data <- read_tsv("~/RMB/SoilDomestication/Data/seedling_vigor.tsv")
@@ -14,14 +15,36 @@ seedling_data <- read_tsv("~/RMB/SoilDomestication/Data/seedling_vigor.tsv")
 
 ```{r}
 seedling_data <- seedling_data %>% 
-  mutate(Trt = gsub("\\(-\\)", "-", Trt)) %>% 
-  mutate(Trt = gsub("\\(+\\)", "+", Trt)) %>% 
+  mutate(Trt = gsub("\\(-\\)", "Autoclaved Inoculum", Trt)) %>% 
+  mutate(Trt = gsub("-", "Autoclaved Inoculum", Trt)) %>% 
+  mutate(Trt = gsub("\\(\\+\\)", "Live Inoculum", Trt)) %>% 
   mutate(Type = ifelse(endsWith(Soil, "A"), "Domesticated", "Wild")) %>% 
   mutate(BinNumber = factor(BinNumber))
 
 seedling_data %>% 
   ggplot(aes(Type, Height, color = Trt, shape = Soil)) +
-  geom_point(position = position_jitterdodge(jitter.width = 0.1))
+  geom_point(position = position_jitterdodge(jitter.width = 0.1)) +
+  scale_color_manual(values = c("grey50", "darkseagreen")) +
+  theme_minimal()
+
+h_model <- lme(Height ~ Trt * Type, random = ~1|Soil, data =  seedling_data)
+h_posthoc <- glht(h_model)
+
+anova.lme(h_aov)
+tidy(TukeyHSD(h_aov))
+m_aov <- aov(Mass ~ Trt * Type + Soil, data = seedling_data)
+tidy(TukeyHSD(m_aov))
+seedling_data %>% 
+  group_by(Trt) %>% 
+  nest() %>% 
+  mutate(ktest = map(data, ~kruskal.test(Mass ~ factor(Type), data = .))) %>% 
+  unnest(map(ktest, ~tidy(.)))
+
+seedling_data %>% 
+  group_by(Trt) %>% 
+  nest() %>% 
+  mutate(atest = map(data, ~lm(Mass ~ factor(Type), data = .))) %>% 
+  unnest(map(atest, ~tidy(.)))
 ```
 
 ```{r}
