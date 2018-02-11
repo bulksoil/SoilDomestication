@@ -146,8 +146,10 @@ vData <- vData %>%
 write_rds(vData, "~/RMB/SoilDomestication/Data/vigor_data.rds")
 vData <- read_rds("~/RMB/SoilDomestication/Data/vigor_data.rds")
 
-vData %>% 
-  mutate(Type = )
+vData <- vData %>% 
+  mutate(Type = ifelse(grepl("A$", Soil), "Domesticated", "Wild")) %>% 
+  mutate(Status = gsub("\\+", "Live Inoculum", Status)) %>% 
+  mutate(Status = gsub("-", "Autoclaved Inoculum", Status))
 
 ```
 
@@ -156,25 +158,36 @@ vData %>%
 Every analysis needs a good PCoA to figure out what is going on.
 ```{r}
 pc <- tidy_pcoa(vData %>% mutate(logRA = log2(RA + 1)), value = "logRA")
+
 pc$axes %>% 
-  ggplot(aes(MDS1, MDS2, color = Soil, shape = Status)) +
+  ggplot(aes(MDS1, MDS2, color = Compartment, shape = Type)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c("#377EB8", "#984EA3", "#E41A1C")) +
+  theme_minimal() 
+
+pc$axes %>% 
+  ggplot(aes(MDS1, MDS2, color = Type, shape = Status)) +
   geom_point(size = 3) +
   scale_color_manual(values = c("dodgerblue", "gold", "dodgerblue", "gold")) +
   theme_minimal() 
 ```
+The top PCoA shows the differences between the compartments and treatment (live vs dead inoculum). The "Pre" category is the micrbiome of the actual inoculum that went into the soils.
+
+The bottom PCoA shows the differences between soil history. Notice that at the bottom of the graph are the autoclaved inocula samples. Their microbiomes of wild and domesticated soils in the autoclaved treatment appears to be converged.
+
 ```{r}
 vData %>% 
   mutate(logRA = log2(RA + 1)) %>% 
   #filter(Status != "Pre") %>% 
   group_by(Status, Compartment) %>% 
   nest() %>% 
-  mutate(ad = map(data, ~long_adonis(., value = "logRA", formula = "Soil"))) %>% 
+  mutate(ad = map(data, ~long_adonis(., value = "logRA", formula = "Type"))) %>% 
   unnest(map(ad, ~tidy(.))) %>% 
-  filter(term == "Soil") %>% 
+  filter(term == "Type") %>% 
   mutate(Compartment = fct_relevel(Compartment, "Soil", "Rhizosphere", "Endosphere")) %>% 
   ggplot(aes(paste(Status, Compartment), R2, fill = Status)) +
   geom_bar(stat = "identity") +
-  labs(y = "Soil R2", x = "") +
+  labs(y = "Soil history R2", x = "") +
   facet_grid(.~Compartment, scales = "free_x", space = "free_x") +
   scale_fill_manual(values = c("grey50", "darkseagreen", "mediumpurple1")) +
   theme_minimal() +
