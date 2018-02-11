@@ -2,6 +2,13 @@
 title: "Seedling Vigor Microbiome Analysis"
 output: html_notebook
 ---
+## Introduction
+
+In our previous results, we show that soil microbiomes differ between rice field soils (domesticated) and soils from nearby non-agricultural sites (wild soils). This is perhaps not suprising. Rice fields receive added nutrients and are flooded throughout the season. Why would this *not* affect the community of microbes living in the soil? An interesting correlation, however, is that many of the microbes enriched in the domesticated soils are also found to be specifically in rice plants compared to other native plant species growing in rice fields. Therefore it appears that rice plants themselves are shifting the soil microbiome to reflect the microbiota they actually acquire.
+
+One could imagine many possibilities for why this phenomenon may be beneficial or detrimental to the host rice plants. The experiment I will describe below was initially designed to address a hypothesis that being surrounded by a pre-assembled microbiome may relieve some of the pressure or energy allocation for acquiring a microbiome and allow the plant to reallocate energy into general growth. Therefore, we would expect that seeds germinated in domesticated soils would portray greater seedling vigor traits that seeds germinated in wild soils. This was just one hypothesis. I'm sure you can imagine many more...
+
+If we want to test this hypothesis, we have to be crafty with the expeirment. We cannot just put plants in soil from the field and measure seedling vigor traits. These soils will differ for many characteristics (e.g. nutrient content, structure, etc.), so we needed a way of evening out the playing field between each test soil. We decided to test a method where we inoculate a dilute amount of soil into a common matrix, germinate our seedlings
 
 ```{r}
 library(tidyverse)
@@ -19,54 +26,32 @@ seedling_data <- seedling_data %>%
   mutate(Trt = gsub("-", "Autoclaved Inoculum", Trt)) %>% 
   mutate(Trt = gsub("\\(\\+\\)", "Live Inoculum", Trt)) %>% 
   mutate(Type = ifelse(endsWith(Soil, "A"), "Domesticated", "Wild")) %>% 
-  mutate(BinNumber = factor(BinNumber))
+  mutate(BinNumber = factor(BinNumber)) %>% 
+  mutate(interactions = interaction(Trt, Type))
+```
 
+```{r}
 seedling_data %>% 
   ggplot(aes(Type, Height, color = Trt, shape = Soil)) +
   geom_point(position = position_jitterdodge(jitter.width = 0.1)) +
   scale_color_manual(values = c("grey50", "darkseagreen")) +
   theme_minimal()
+```
 
-h_model <- lme(Height ~ Trt * Type, random = ~1|Soil, data =  seedling_data)
-h_posthoc <- glht(h_model)
-
-anova.lme(h_aov)
-tidy(TukeyHSD(h_aov))
-m_aov <- aov(Mass ~ Trt * Type + Soil, data = seedling_data)
-tidy(TukeyHSD(m_aov))
-seedling_data %>% 
-  group_by(Trt) %>% 
-  nest() %>% 
-  mutate(ktest = map(data, ~kruskal.test(Mass ~ factor(Type), data = .))) %>% 
-  unnest(map(ktest, ~tidy(.)))
-
-seedling_data %>% 
-  group_by(Trt) %>% 
-  nest() %>% 
-  mutate(atest = map(data, ~lm(Mass ~ factor(Type), data = .))) %>% 
-  unnest(map(atest, ~tidy(.)))
+Let's model these results. In this particular experiment, it is important to keep in mind that several of the factors were nested inside other factor and the replication (two boxes per sample type) could add random noise to the results. Therefore, we will use a random effects model to test whether the soil type (wild vs. domesticated) affects seedling height and mass in the live culture and autoclaved microbiomes.
+```{r}
+h_model <- lme(Height ~ interactions, random = ~1|Type/Soil/BoxNumber, data =  seedling_data)
+h_posthoc <- glht(h_model, linfct = mcp(interactions = "Tukey"))
+tidy(summary(h_posthoc)) %>% mutate(p_adj = p.adjust(p.value, "bon"))
 ```
 
 ```{r}
-library(nlme)
-seedling_data %>% 
-  group_by(Trt) %>% 
-  nest() %>% 
-  mutate(lm_mod = map(data, ~lm(Mass ~ Soil, .))) %>% 
-  unnest(map(lm_mod, ~tidy(.)))
-
-seedling_data %>% 
-  group_by(Trt) %>% 
-  nest() %>% 
-  mutate(lm_mod = map(data, ~lm(Height ~ Soil, .))) %>% 
-  unnest(map(lm_mod, ~tidy(.)))
-
-j <- aov(Mass ~ Type * Trt, data = seedling_data)
-TukeyHSD(j)
-
-j <- lme(Mass ~ Type * Trt, random=~1|Soil, data = seedling_data)
-summary(j)
+m_model <- lme(Mass ~ interactions, random = ~1|Type/Soil/BoxNumber, data =  seedling_data)
+m_posthoc <- glht(m_model, linfct = mcp(interactions = "Tukey"))
+tidy(summary(m_posthoc)) %>% mutate(p_adj = p.adjust(p.value, "bon"))
 ```
+
+
 
 ```{r}
 library(vegan)
