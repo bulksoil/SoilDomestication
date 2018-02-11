@@ -8,19 +8,43 @@ In our previous results, we show that soil microbiomes differ between rice field
 
 One could imagine many possibilities for why this phenomenon may be beneficial or detrimental to the host rice plants. The experiment I will describe below was initially designed to address a hypothesis that being surrounded by a pre-assembled microbiome may relieve some of the pressure or energy allocation for acquiring a microbiome and allow the plant to reallocate energy into general growth. Therefore, we would expect that seeds germinated in domesticated soils would portray greater seedling vigor traits that seeds germinated in wild soils. This was just one hypothesis. I'm sure you can imagine many more...
 
-If we want to test this hypothesis, we have to be crafty with the expeirment. We cannot just put plants in soil from the field and measure seedling vigor traits. These soils will differ for many characteristics (e.g. nutrient content, structure, etc.), so we needed a way of evening out the playing field between each test soil. We decided to test a method where we inoculate a dilute amount of soil into a common matrix, germinate our seedlings
+If we want to test this hypothesis, we have to be crafty with the expeirment. We cannot just put plants in soil from the field and measure seedling vigor traits. These soils will differ for many characteristics (e.g. nutrient content, structure, etc.), so we needed a way of evening out the playing field between each tested soil. We decided to try a method where we inoculate a dilute amount of soil into a common matrix, germinate our seedlings, and measure traits and microbiomes. It was a bit more complex than that, so let me elaborate:
 
+1) Collect soils. Soils were dry at the time of collection.
+2) Moisten soils to reactivate microbes. Allow to incubate in the dark at 30 degrees C for two weeks.
+3) Autoclave the common soil substrate. In this case we used UC Mix, which is commonly used to grow rice plants in the greenhouse. There were 2 rounds of autoclaving.
+4) After the soil inoculum is ready, we inoculated the soil slurry at 1% into the UC Mix. I will detail this procedure more.
+* We used 1.8 kg of UC Mix and 18 g of the soil inoculum.
+* The soil inoculum was weighed and put into 1 L of 0.5 strength MS.
+* We also had another treatment of sterilized inoculum. This was done by plant 18 g of the soil into 1L of 0.5 strength MS and autoclaving the slurry.
+* The slurries were poured into 1.8 kg of the UC Mix and mixed by hand. I put gloves on each hand, sprayed with 70% ethanol, and allowed to dry.
+* After mixing, lids were placed on the containers and aluminum foil was wrapped around the containers to keep them dark. They were then transported to the greenhouse and allowed to incubate for 2 more weeks.
+5) After two weeks, soils were loaded into autoclaved P1000 tip boxes in equal amounts. Each tipbox could hold 800 grams of soil. Holes in the tip boxes were previously made using a soldering iron to allow for water to enter each well. There were 8 wells inside of each tipbox. 
+6) Seeds (which had been soaked for 2 hours in 1% bleach, rinsed, and then soaked overnight in pure H20) were placed in each well of each tipbox. One seed per well.
+7) Watering occurred everyday to ensure that each container had an equal amount of water.
+8) After two weeks, measurements were taken and roots were collected.
+
+Below you can see an example container with rice seedlings growing. 
+![vigor expeirment](/Users/joeya/Downloads/DSC_3769.JPG)
+
+In a sense, there were two experiments going on here: a biological experiment to test whether microbiomes can affect seedling vigor, and a technical experiment to see if we could recapitulate different microbiomes across a common soil substrate.
+
+## Data analysis
+
+This will begin by analyzing the seedling vigor traits between the two soil types (wild vs. domesticated) when the inoculum is live or sterilized.
+
+### Load in the necessary libraries
 ```{r}
 library(tidyverse)
 library(broom)
 library(nlme)
 library(multcomp)
 ```
+
+### Load in the vigor data and format it
 ```{r}
 seedling_data <- read_tsv("~/RMB/SoilDomestication/Data/seedling_vigor.tsv")
-```
 
-```{r}
 seedling_data <- seedling_data %>% 
   mutate(Trt = gsub("\\(-\\)", "Autoclaved Inoculum", Trt)) %>% 
   mutate(Trt = gsub("-", "Autoclaved Inoculum", Trt)) %>% 
@@ -35,29 +59,57 @@ seedling_data %>%
   ggplot(aes(Type, Height, color = Trt, shape = Soil)) +
   geom_point(position = position_jitterdodge(jitter.width = 0.1)) +
   scale_color_manual(values = c("grey50", "darkseagreen")) +
-  theme_minimal()
+  theme_minimal() +
+  labs(x = "", y = "Height (cm)", color = "Treatment") +
+  theme(text = element_text(size = 12))
 ```
+With the domesticated soils, it appears that the seedlings growing in the live culture inoculated soils are shorter than the plants with the wild soil microbiome. Also with the autoclaved inoculum, there appears to be similar distribution in plant heights between the soils. We will look to see whether these effects are signficant below.
 
-Let's model these results. In this particular experiment, it is important to keep in mind that several of the factors were nested inside other factor and the replication (two boxes per sample type) could add random noise to the results. Therefore, we will use a random effects model to test whether the soil type (wild vs. domesticated) affects seedling height and mass in the live culture and autoclaved microbiomes.
+We next look at plant mass.
 ```{r}
-h_model <- lme(Height ~ interactions, random = ~1|Type/Soil/BoxNumber, data =  seedling_data)
-h_posthoc <- glht(h_model, linfct = mcp(interactions = "Tukey"))
-tidy(summary(h_posthoc)) %>% mutate(p_adj = p.adjust(p.value, "bon"))
+seedling_data %>% 
+  ggplot(aes(Type, Mass, color = Trt, shape = Soil)) +
+  geom_point(position = position_jitterdodge(jitter.width = 0.1)) +
+  scale_color_manual(values = c("grey50", "darkseagreen")) +
+  theme_minimal() +
+  labs(x = "", y = "Mass (g)", color = "Treatment") +
+  theme(text = element_text(size = 12))
 ```
+Similar story.
+
+Let's model these results. In this particular experiment, it is important to keep in mind that several of the factors were nested inside other factors and the replication (two boxes per sample type) could add random noise to the results. Therefore, we will use a random effects model to test whether the soil type (wild vs. domesticated) affects seedling height and mass in the live culture and autoclaved microbiomes.
+```{r}
+height_model <- lme(Height ~ interactions, random = ~1|Type/Soil/BoxNumber, data =  seedling_data)
+height_posthoc <- glht(height_model, linfct = mcp(interactions = "Tukey"))
+tidy(summary(height_posthoc)) %>% mutate(p_adj = p.adjust(p.value, "bon"))
+```
+From the post-hoc comparisons, we see two important things regarding seedling height: plants growing in soils with live inocula have signficantly different heights between wild and domesticated soils. Plants grown in wild soil are on average 6.5 cm **taller** than plants grown in domesticated soils. This goes against the initial hypothesis stated in the introduction. Secondly, there are no signficant differences in heights between plants grown in soil with autoclaved inocula. Therefore, we can infer that the differences whitnessed between wild and domesticated soils with live inocula are due to biotic rather than edaphic differences between the soils.
+
+We will now repeat this model using seedling mass as the dependent variable.
 
 ```{r}
-m_model <- lme(Mass ~ interactions, random = ~1|Type/Soil/BoxNumber, data =  seedling_data)
-m_posthoc <- glht(m_model, linfct = mcp(interactions = "Tukey"))
-tidy(summary(m_posthoc)) %>% mutate(p_adj = p.adjust(p.value, "bon"))
+mass_model <- lme(Mass ~ interactions, random = ~1|Type/Soil/BoxNumber, data =  seedling_data)
+mass_posthoc <- glht(mass_model, linfct = mcp(interactions = "Tukey"))
+tidy(summary(mass_posthoc)) %>% mutate(p_adj = p.adjust(p.value, "bon"))
 ```
 
+Again, we see that when plants given the live inocula separate have signficantly different masses with plants coming from wild soil having a mass of around 70 mgs greater than plants in domesticated soils.
 
+## Microbiome Analysis
+Great! We appear to have a biological result. This was not what I expected at first. I thought plants with a domesticated microbiome would have great seedling vigor traits. Instead, we observed the opposite. Plants growing in domesticated soil microbiomes had lower seedling vigor values than plants with wild soil microbiomes. There are also reasons that this could be true -  a build up of pathogenic microbes seems the most likely. It could also be a tradeoff. Maybe plants with a domesticated microbiome have less growth overall, but the microbiome gives them some benefit (which is yet to be observed) that the wild microbiota cannot.
 
+Anyway, none of the biological results mean anything if we cannot show that the microbiota established itself in a similar manner to plants grown in actual soil - rather than inoculated potting soil. We need to do a microbiome analysis to show this.
+
+Here we go.
+
+### Load in the libraries
 ```{r}
 library(vegan)
 library(reshape2)
 library(tidyMB)
 ```
+
+### Load in the relevant data
 ```{r}
 tax <- read_rds("~/RMB/Reference/gg_otus_tax.rds")
 vOTU <- t(read.table("~/RMB/SoilDomestication/Data/vigor_otu_table.tsv", header = T, row.names = 1))
@@ -67,9 +119,10 @@ vData <- melt(cbind(vMap, vOTU), id.vars = names(vMap)) %>%
   inner_join(tax, by = "variable") %>% 
   filter(Class != "Chloroplast") %>% 
   filter(Family != "Mitochondria") %>% 
-  select(-Kingdom, -Phylum, -Class, -Order, -Genus, -Species, -Phylum2, -Family)
+  dplyr::select(-Kingdom, -Phylum, -Class, -Order, -Genus, -Species, -Phylum2, -Family)
 ```
 
+### Checking sequencing depth for each library
 ```{r}
 vData %>% 
   group_by(SampleID, Compartment) %>% 
@@ -79,6 +132,10 @@ vData %>%
   facet_grid(.~Compartment)
 ```
 
+Looks pretty good. There is nothing too low.
+
+### More cleaning, formatting, and saving
+Remove OTUs that do not show up in at least 5% of the samples
 ```{r}
 vData <- vData %>% 
   group_by(SampleID) %>% 
@@ -88,15 +145,22 @@ vData <- vData %>%
 
 write_rds(vData, "~/RMB/SoilDomestication/Data/vigor_data.rds")
 vData <- read_rds("~/RMB/SoilDomestication/Data/vigor_data.rds")
+
+vData %>% 
+  mutate(Type = )
+
 ```
 
+
+### PCoAs
+Every analysis needs a good PCoA to figure out what is going on.
 ```{r}
 pc <- tidy_pcoa(vData %>% mutate(logRA = log2(RA + 1)), value = "logRA")
 pc$axes %>% 
   ggplot(aes(MDS1, MDS2, color = Soil, shape = Status)) +
   geom_point(size = 3) +
   scale_color_manual(values = c("dodgerblue", "gold", "dodgerblue", "gold")) +
-  theme_minimal()
+  theme_minimal() 
 ```
 ```{r}
 vData %>% 
