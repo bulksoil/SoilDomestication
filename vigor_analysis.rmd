@@ -25,7 +25,7 @@ If we want to test this hypothesis, we have to be crafty with the expeirment. We
 8) After two weeks, measurements were taken and roots were collected.
 
 Below you can see an example container with rice seedlings growing. 
-![vigor expeirment](/Users/joeya/Downloads/DSC_3769.JPG)
+![vigor expeirment](Figures/vigor_pic.jpeg)
 
 In a sense, there were two experiments going on here: a biological experiment to test whether microbiomes can affect seedling vigor, and a technical experiment to see if we could recapitulate different microbiomes across a common soil substrate.
 
@@ -175,6 +175,23 @@ The top PCoA shows the differences between the compartments and treatment (live 
 
 The bottom PCoA shows the differences between soil history. Notice that at the bottom of the graph are the autoclaved inocula samples. Their microbiomes of wild and domesticated soils in the autoclaved treatment appears to be converged.
 
+
+```{r}
+vData %>% 
+  group_by(SampleID, Compartment, Status, Type) %>% 
+  summarise(richness = sum(value > 0)) %>% 
+  ungroup() %>% 
+  mutate(Compartment = fct_relevel(Compartment, "Soil", "Rhizosphere", "Endosphere")) %>% 
+  ggplot(aes(Compartment, richness, color = Type)) +
+  geom_point(position = position_dodge(width = 0.5)) +
+  facet_grid(.~Status, scale = "free_x") +
+  scale_color_manual(values = c("dodgerblue", "gold")) +
+  theme_minimal() +
+  labs(y = "Species Richness", x = "") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+
 ```{r}
 vData %>% 
   mutate(logRA = log2(RA + 1)) %>% 
@@ -193,52 +210,13 @@ vData %>%
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
 ```
+This result is showing the R^2^ values for soil history (wild vs domesticated) in each compartment and between autoclaved vs live inoculum. We can see that the strength of soil history on the acquired communities is much stronger with the live inoculum compared to the autoclaved. 
 
-```{r}
-vDis <- tidyMB::long_distance(vData %>% mutate(logRA = log2(RA + 1)), value = "logRA")
+### Differential abundance tests
 
-pre_between <- vDis %>%
-  filter(Soil.x == Soil.y) %>%
-  filter(Status.x == "Pre" | Status.y == "Pre") %>% 
-  filter(Status.x != Status.y) %>% 
-  mutate(thing = gsub("Pre", "", paste(Status.x, Status.y, sep = ""))) %>% 
-  filter(Compartment.x == Compartment.y) 
+In our previous results, we showed that the microbes enriched from the domesticated soils overlap to a considerable with rice enriched microbes. We will again test this, but this time using the inoculated soils. Ideally, we would expect that plants growing in the soils with the live inocula should also host rice specific microbes while plants growing the soils with the autoclaved inocula should not.
 
-pre_within <- vDis %>%
-  filter(Soil.x == Soil.y) %>%
-  filter(Status.x == "Pre" & Status.y == "Pre") %>% 
-  filter(Compartment.x == Compartment.y) %>% 
-  mutate(thing = "Between")
-
-bind_rows(pre_between, pre_within) %>% 
-  mutate(thing = gsub("\\-", "Sterile vs. Inoculum", thing),
-         thing = gsub("\\+", "Inoculated vs. Inoculum", thing),
-         thing = gsub("Between", "Inoculum vs. Inoculum", thing)) %>% 
-  mutate(thing = fct_reorder(factor(thing), value)) %>% 
-  ggplot(aes(x = 1, y = value, fill = thing)) +
-  geom_boxplot(outlier.size = 0.1) +
-  facet_grid(.~Soil.x) +
-  labs(x = "", y = "Bray dissimilarity", fill = "Treatment") +
-  scale_fill_brewer(palette = "Set2") +
-  theme_minimal() +
-  theme(axis.text.x = element_blank(),
-        axis.ticks.x = element_blank())
-```
-
-```{r}
-vDis %>% 
-  filter(Status.x != "Pre") %>% 
-  filter(Status.y != "Pre") %>% 
-  filter(Status.x == Status.y) %>% 
-  filter(Soil.x != Soil.y) %>% 
-  filter(Compartment.x == Compartment.y) %>% 
-  ggplot(aes(Status.x, y = value, color = Status.x)) +
-  geom_point(position = position_jitter(width = 0.1)) +
-  geom_boxplot(alpha = 0.0) +
-  facet_grid(.~Compartment.x)
-```
-
-
+The approach we will take here will be to model each compartment and treatment (live vs autoclaved) separately to identify OTUs differentially abundant between soil history types. Again, there are two "wild" soils and two "domesticated" soils. We will compare each wild to each domesticated soil and find the OTUs that are differentially abundand across each comparison.
 ```{r}
 library(stringr)
 library(DESeq2)
@@ -272,13 +250,14 @@ vDE <- vData %>%
 write_rds(vDE, "~/RMB/SoilDomestication/Data/vigorDA.rds")
 ```
 
-How many OTUs are DA across the soil treatments (sterilized vs not sterilized)?
+How many OTUs are differentially abundant between soil history across the soil treatments (sterilized vs not sterilized)?
 ```{r}
+vDE <- read_rds("~/RMB/SoilDomestication/Data/vigorDA.rds")
 vDE %>% 
   unnest(map(results, ~tidy(.))) %>% 
   separate(Comparison, into = c("Compartment", "Soil1", "Soil2"), sep = "_") %>% 
   mutate(direction = ifelse(estimate > 0, "A", "N")) %>% 
-  filter(p.adjusted <= 0.01) %>% ungroup() %>% 
+  filter(p.adjusted <= 0.05) %>% ungroup() %>% 
   dplyr::count(Compartment, Status, gene, direction) %>% 
   filter(n == 4) %>% 
   dplyr::count(Compartment, Status, direction) %>% 
@@ -293,12 +272,12 @@ vDE %>%
   theme(axis.text.x = element_text(angle =  30, hjust = 1), text = element_text(size = 12),
         legend.position = "none") 
 ```
-
+This graph shows that there are many OTUs differentially abundant in the live inoculum soils but very few in the autoclaved soils. This is exactly what we would expect. Because the this experiment was not performed in a closed system, we would expect that the microbes the roots are aquiring microbes from the environment, but the assembled communities are either going to be consistent or random and therefore we would not find differentially abundant OTUs between soil histories. We know from the PCoA that these communities residing in the soil with autoclaved inocula are consistent.
 ```{r}
 vDE %>% 
   unnest(map(results, ~tidy(.))) %>% 
   separate(Comparison, into = c("Compartment", "Soil1", "Soil2"), sep = "_") %>% 
-  mutate(direction = ifelse(estimate > 0, "A", "N")) %>% 
+  mutate(direction = ifelse(estimate > 0, "Domesticated", "Wild")) %>% 
   filter(p.adjusted <= 0.05) %>% ungroup() %>% 
   dplyr::count(Compartment, Status, gene, direction) %>% 
   filter(n == 4) %>% 
@@ -308,7 +287,12 @@ vDE %>%
   ggplot(aes(Compartment, y = nn, fill = Phylum2)) +
   geom_bar(stat = "identity") +
   facet_grid(.~Status + direction, scales = "free_x") +
-  #scale_fill_manual(values = c(brewer.pal(11, "Spectral"), brewer.pal(5, "Blues"))) +
+  scale_fill_manual(values = c(brewer.pal(11, "Spectral"), 
+                               brewer.pal(5, "Reds"),
+                               brewer.pal(4, "Blues"))) +
+  labs(x = "", y = "Number of OTUs") +
+  theme_minimal() +
+  guides(fill = guide_legend(ncol = 2)) +
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
 ```
 
