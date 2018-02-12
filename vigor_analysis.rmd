@@ -118,7 +118,7 @@ vMap <- vMap[match(row.names(vOTU), vMap$SampleID),]
 vData <- melt(cbind(vMap, vOTU), id.vars = names(vMap)) %>% 
   inner_join(tax, by = "variable") %>% 
   filter(Class != "Chloroplast") %>% 
-  filter(Family != "Mitochondria") %>% 
+  filter(Family != "mitochondria") %>% 
   dplyr::select(-Kingdom, -Phylum, -Class, -Order, -Genus, -Species, -Phylum2, -Family)
 ```
 
@@ -212,6 +212,30 @@ vData %>%
 ```
 This result is showing the R^2^ values for soil history (wild vs domesticated) in each compartment and between autoclaved vs live inoculum. We can see that the strength of soil history on the acquired communities is much stronger with the live inoculum compared to the autoclaved. 
 
+```{r}
+vData %>% 
+  inner_join(tax, by = "variable") %>% 
+  group_by(Phylum2, SampleID, Compartment, Status, Soil, Type) %>% 
+  summarise(total = sum(RA)) %>% 
+  group_by(Phylum2) %>% nest() %>% 
+  mutate(totz = map_dbl(data, ~sum(.x$total))) %>% 
+  top_n(10, totz) %>% 
+  dplyr::select(-totz) %>% 
+  unnest() %>% 
+  group_by(Compartment, SampleID, Status, Soil, Type) %>% 
+  nest() %>% 
+  group_by(Compartment, Soil, Type, Status) %>% 
+  mutate(order = 1:n()) %>% 
+  unnest() %>% 
+  group_by(Compartment, Soil, Type, Status, Phylum2) %>% 
+  summarise(mean_ab = mean(total)) %>% 
+  ggplot(aes(paste(Type, Soil), mean_ab, fill = Phylum2)) +
+  geom_bar(stat = "identity") +
+  facet_grid(Compartment ~ Status, scales = "free_x") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+
 ### Differential abundance tests
 
 In our previous results, we showed that the microbes enriched from the domesticated soils overlap to a considerable with rice enriched microbes. We will again test this, but this time using the inoculated soils. Ideally, we would expect that plants growing in the soils with the live inocula should also host rice specific microbes while plants growing the soils with the autoclaved inocula should not.
@@ -273,6 +297,8 @@ vDE %>%
         legend.position = "none") 
 ```
 This graph shows that there are many OTUs differentially abundant in the live inoculum soils but very few in the autoclaved soils. This is exactly what we would expect. Because the this experiment was not performed in a closed system, we would expect that the microbes the roots are aquiring microbes from the environment, but the assembled communities are either going to be consistent or random and therefore we would not find differentially abundant OTUs between soil histories. We know from the PCoA that these communities residing in the soil with autoclaved inocula are consistent.
+
+Let us next take a peek at the which phyla the differentially abundant OTUs belong to. 
 ```{r}
 vDE %>% 
   unnest(map(results, ~tidy(.))) %>% 
@@ -284,17 +310,21 @@ vDE %>%
   inner_join(tax, by = c("gene" = "variable")) %>% 
   dplyr::count(Compartment, Status, direction, Phylum2) %>% 
   mutate(Compartment = fct_relevel(Compartment, "BulkSoil", "Rhizosphere", "Endosphere")) %>% 
+  mutate(Status = ifelse(Status == "-", "Autoclaved", "Live")) %>% 
   ggplot(aes(Compartment, y = nn, fill = Phylum2)) +
   geom_bar(stat = "identity") +
   facet_grid(.~Status + direction, scales = "free_x") +
   scale_fill_manual(values = c(brewer.pal(11, "Spectral"), 
-                               brewer.pal(5, "Reds"),
+                               brewer.pal(4, "Reds"),
                                brewer.pal(4, "Blues"))) +
   labs(x = "", y = "Number of OTUs") +
   theme_minimal() +
   guides(fill = guide_legend(ncol = 2)) +
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
 ```
+This is promising. If we go back and look at SFig9, we can see that the domesticated OTUs belong to a few phyla - primarily Deltaproteobacteria, Acidobacteria, and Chloroflexi, among others. In the wild soils we see that they have OTUs which belong to Gammaproteobacteria, and some others. The graph above appears to be showing the same trends.
+
+Let's next look at the overlap of rice-enriched OTUs compared to the OTUs we found to be enriched in the domesticated soils in this experiment.
 
 ```{r}
 np_deseq <- read_rds("~/RMB/SoilDomestication/Data/weeds_deseq.rds")
@@ -328,18 +358,103 @@ dom_otus <- dom_deseq %>%
 A_otus <- vDE %>% 
   unnest(map(results, ~tidy(.))) %>% 
   separate(Comparison, into = c("Compartment", "Soil1", "Soil2"), sep = "_") %>% 
-  mutate(direction = ifelse(estimate > 0, "A", "N")) %>% 
+  mutate(direction = ifelse(estimate > 0, "Domesticated", "Wild")) %>% 
   filter(p.adjusted <= 0.05) %>% ungroup() %>% 
   dplyr::count(Compartment, Status, gene, direction) %>% 
-  filter(n == 4 & direction == "A" & Status == "+") %>% 
+  filter(n == 4 & direction == "Domesticated" & Status == "Live Inoculum") %>% 
   dplyr::count(gene)
+```
 
-A_overlap <- intersect(rice_otus$variable, A_otus$gene)
-dom_overlap <- intersect(rice_otus$variable, dom_otus$variable)
-dov_v_vig_overlap <- intersect(dom_otus$variable, A_otus$gene)
-length(intersect(A_overlap, dom_overlap))
+```{r}
+library(phyloseq)
+gg_tree <- readRDS("~/RMB/SoilDomestication/Data/gg_tree.rds")
+
+in_otus <- vDE %>% 
+  unnest(map(results, ~tidy(.))) %>% 
+  separate(Comparison, into = c("Compartment", "Soil1", "Soil2"), sep = "_") %>% 
+  mutate(direction = ifelse(estimate > 0, "Domesticated", "Wild")) %>% 
+  filter(p.adjusted <= 0.05) %>% ungroup() %>% 
+  dplyr::count(Compartment, Status, gene, direction) %>% 
+  filter(n == 4 & Status == "Live Inoculum") %>% 
+  mutate(variable = gene)
+
+domMD <- data.frame(Compartment = c("aShared", rep(c("bBulkSoil", "cRhizosphere", "dEndosphere"), each = 2)),
+                      Type = c("aShared",rep(c("Domesticated", "Wild"), 3)),
+                      SampleID = paste("D", 0:6, sep = ""),
+                    row.names = paste("D", 0:6, sep = ""))
+
+dT <- in_otus %>% 
+  mutate(Type = direction) %>% 
+  mutate(Compartment = gsub("BulkSoil", "bBulkSoil", Compartment),
+         Compartment = gsub("Rhizosphere", "cRhizosphere", Compartment),
+         Compartment = gsub("Endosphere", "dEndosphere", Compartment)) %>% 
+  bind_rows(rice_otus %>% filter(variable %in% 
+                                   intersect(in_otus %>% 
+                                               filter(direction == "Domesticated") %>% 
+                                               pull(variable), rice_otus$variable)) %>% 
+              dplyr::count(variable) %>% 
+              mutate(Type = "aShared", Compartment = "aShared")) %>% 
+  mutate(value = 1) %>% 
+  inner_join(domMD, by = c("Compartment", "Type")) %>%
+  dplyr::select(SampleID, variable, value) %>% 
+  spread(SampleID, value, fill = 0) %>% 
+  as.data.frame()
+row.names(dT) <- dT$variable
+dT$variable <- NULL  
+
+dTax <- in_otus %>% 
+  inner_join(tax, by = "variable") %>% 
+  spread(Compartment, direction) %>% 
+  mutate(Phylum2 = as.character(Phylum2)) %>% 
+  dplyr::rename(Domain = Kingdom) %>% 
+  as.data.frame()
+row.names(dTax) <- dTax$variable
+dTax <- dTax[match(row.names(dT), row.names(dTax)),]
+
+
+dom.physeq_sampleType <- phyloseq(otu_table(dT, taxa_are_rows = T), 
+                       sample_data(domMD),
+                       dTax,
+                       gg_tree)
+# Plot tree with metadata
+plot_tree(dom.physeq_sampleType, color = "Type", ladderize = "left", shape = "Compartment", justify = "left", size = "Type") +
+  scale_color_manual(values = c('black', "dodgerblue", "gold")) +
+  scale_shape_manual(values = c(1, 16, 15, 17)) +
+  scale_size_manual(values = c(1,2,2,2))
+
+# Plot tree with taxonomic information
+dom.physeq_Phy <- phyloseq(otu_table(data.frame(J1 = rep(1, nrow(dT)), row.names = row.names(dT)), taxa_are_rows = T), 
+                       tax_table(as.matrix(dTax)),
+                       gg_tree)
+
+plot_tree(dom.physeq_Phy, color = "Phylum2", ladderize = "left") 
 ```
 
 
+```{r}
+A_overlap <- intersect(rice_otus$variable, A_otus$gene)
+dom_overlap <- intersect(rice_otus$variable, dom_otus$variable)
+dov_v_vig_overlap <- intersect(dom_otus$variable, A_otus$gene)
 
+print(paste(length(A_overlap), "OTUs overlap between dometicated OTUs (this expeirment) and the rice enriched microbes."))
+print(paste(length(dom_overlap), "OTUs overlap between dometicated OTUs (previous expeirment) and the rice enriched microbes."))
+print(paste(length(dov_v_vig_overlap), "OTUs overlap between dometicated OTUs in this expeirment and the domesticated OTUs from the previous experiment."))
+```
+
+This is very exciting. Of the OTUs found to be enriched in plants growing in the domesticated soils, 42 of them overlap with the rice enriched microbes from the Arkansas experiment. This is on par with what we discovered in the previous experiment.
+
+
+```{r}
+vDE %>% 
+  unnest(map(results, ~tidy(.))) %>% 
+  separate(Comparison, into = c("Compartment", "Soil1", "Soil2"), sep = "_") %>% 
+  mutate(direction = ifelse(estimate > 0, "Domesticated", "Wild")) %>% 
+  filter(p.adjusted <= 0.05) %>% ungroup() %>% 
+  dplyr::count(Compartment, Status, gene, direction) %>% 
+  filter(n == 4) %>% 
+  inner_join(tax, by = c("gene" = "variable")) %>% 
+  dplyr::count(Compartment, Status, direction, Phylum2) %>% 
+  mutate(Compartment = fct_relevel(Compartment, "BulkSoil", "Rhizosphere", "Endosphere")) %>%
+  filter(Phylum2 == "Cyanobacteria")
+```
 
