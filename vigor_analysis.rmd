@@ -310,7 +310,6 @@ vDE %>%
   inner_join(tax, by = c("gene" = "variable")) %>% 
   dplyr::count(Compartment, Status, direction, Phylum2) %>% 
   mutate(Compartment = fct_relevel(Compartment, "BulkSoil", "Rhizosphere", "Endosphere")) %>% 
-  mutate(Status = ifelse(Status == "-", "Autoclaved", "Live")) %>% 
   ggplot(aes(Compartment, y = nn, fill = Phylum2)) +
   geom_bar(stat = "identity") +
   facet_grid(.~Status + direction, scales = "free_x") +
