@@ -232,6 +232,8 @@ vData %>%
   ggplot(aes(paste(Type, Soil), mean_ab, fill = Phylum2)) +
   geom_bar(stat = "identity") +
   facet_grid(Compartment ~ Status, scales = "free_x") +
+  scale_fill_brewer(palette = "Spectral") +
+  labs(x = "", y = "Mean Proportion") +
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
 ```
 
@@ -286,8 +288,8 @@ vDE %>%
   filter(n == 4) %>% 
   dplyr::count(Compartment, Status, direction) %>% 
   mutate(group = factor(paste(Compartment, Status))) %>% 
-  mutate(group = fct_relevel(group, "BulkSoil -", "BulkSoil +", "Rhizosphere -", "Rhizosphere +",
-                             "Endosphere -", "Endosphere +")) %>% 
+  #mutate(group = fct_relevel(group, "BulkSoil -", "BulkSoil +", "Rhizosphere -", "Rhizosphere +",
+  #                           "Endosphere -", "Endosphere +")) %>% 
   ggplot(aes(group, nn, fill = Status)) +
   geom_bar(stat = "identity", width = 0.9) +
   scale_fill_manual(values = c("grey50", "darkseagreen")) +
@@ -443,17 +445,4 @@ print(paste(length(dov_v_vig_overlap), "OTUs overlap between dometicated OTUs in
 This is very exciting. Of the OTUs found to be enriched in plants growing in the domesticated soils, 42 of them overlap with the rice enriched microbes from the Arkansas experiment. This is on par with what we discovered in the previous experiment.
 
 
-```{r}
-vDE %>% 
-  unnest(map(results, ~tidy(.))) %>% 
-  separate(Comparison, into = c("Compartment", "Soil1", "Soil2"), sep = "_") %>% 
-  mutate(direction = ifelse(estimate > 0, "Domesticated", "Wild")) %>% 
-  filter(p.adjusted <= 0.05) %>% ungroup() %>% 
-  dplyr::count(Compartment, Status, gene, direction) %>% 
-  filter(n == 4) %>% 
-  inner_join(tax, by = c("gene" = "variable")) %>% 
-  dplyr::count(Compartment, Status, direction, Phylum2) %>% 
-  mutate(Compartment = fct_relevel(Compartment, "BulkSoil", "Rhizosphere", "Endosphere")) %>%
-  filter(Phylum2 == "Cyanobacteria")
-```
 

@@ -999,7 +999,7 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="0.98994949"
-     inkscape:cx="32.186076"
+     inkscape:cx="6.427186"
      inkscape:cy="979.64002"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
@@ -19079,7 +19079,7 @@
     </g>
     <g
        id="g38308"
-       transform="translate(-9.0913729,-49.497475)">
+       transform="matrix(0.89156743,0,0,0.89156743,-2.6347951,-65.337556)">
       <g
          transform="translate(-65.714286,81.428571)"
          id="g38266">
@@ -19494,27 +19494,93 @@
          d="M 91.786776,-65.49494 114.59928,-98.352083"
          style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" />
     </g>
-    <circle
-       style="fill:#000000;fill-opacity:1;stroke:none"
-       id="path38388"
-       cx="72.73098"
-       cy="259.39246"
-       r="8.0812206" />
-    <rect
-       style="fill:#000000;fill-opacity:1;stroke:none"
-       id="rect38390"
-       width="46.467018"
-       height="32.324883"
-       x="284.88333"
-       y="339.19449"
-       clip-path="url(#clipPath38407)"
-       transform="matrix(-0.3903448,0,0,-0.70708636,193.35686,544.31278)" />
-    <rect
-       style="fill:#000016;fill-opacity:1;stroke:none"
-       id="rect38411"
-       width="16.162441"
-       height="16.162441"
-       x="169.70563"
-       y="284.64627" />
+    <g
+       id="g39676"
+       transform="matrix(0.89156743,0,0,0.89156743,5.4707769,-21.207219)">
+      <circle
+         r="8.0812206"
+         cy="337.82977"
+         cx="60.297337"
+         id="path38388-3"
+         style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none" />
+      <text
+         sodipodi:linespacing="125%"
+         id="text38065-6"
+         y="343.00067"
+         x="74.689468"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20px;line-height:125%;font-family:Arial;-inkscape-font-specification:Arial;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         xml:space="preserve"><tspan
+           y="343.00067"
+           x="74.689468"
+           id="tspan38067-2"
+           sodipodi:role="line">Rice specific OTU</tspan></text>
+    </g>
+    <g
+       id="g39681"
+       transform="matrix(0.89156743,0,0,0.89156743,5.4707769,-20.891329)">
+      <rect
+         transform="matrix(-0.3903448,0,0,-0.70708636,180.83579,557.95622)"
+         clip-path="url(#clipPath38407)"
+         y="339.19449"
+         x="284.88333"
+         height="32.324883"
+         width="46.467018"
+         id="rect38390"
+         style="fill:#000000;fill-opacity:1;stroke:none" />
+      <text
+         sodipodi:linespacing="125%"
+         id="text38065-6-2"
+         y="315.20633"
+         x="75.480484"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20px;line-height:125%;font-family:Arial;-inkscape-font-specification:Arial;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         xml:space="preserve"><tspan
+           y="315.20633"
+           x="75.480484"
+           id="tspan38067-2-4"
+           sodipodi:role="line">Enriched in Endosphere</tspan></text>
+    </g>
+    <g
+       id="g39686"
+       transform="matrix(0.89156743,0,0,0.89156743,5.4707769,-23.732057)">
+      <rect
+         y="277.70032"
+         x="52.216118"
+         height="16.162441"
+         width="16.162441"
+         id="rect38411"
+         style="fill:#000016;fill-opacity:1;stroke:none" />
+      <text
+         sodipodi:linespacing="125%"
+         id="text38065-6-7"
+         y="290.95242"
+         x="75.480484"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20px;line-height:125%;font-family:Arial;-inkscape-font-specification:Arial;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         xml:space="preserve"><tspan
+           y="290.95242"
+           x="75.480484"
+           id="tspan38067-2-0"
+           sodipodi:role="line">Enriched in Rhizosphere</tspan></text>
+    </g>
+    <g
+       id="g39691"
+       transform="matrix(0.89156743,0,0,0.89156743,5.4707769,-21.207219)">
+      <circle
+         r="8.0812206"
+         cy="255.50957"
+         cx="60.297337"
+         id="path38388"
+         style="fill:#000000;fill-opacity:1;stroke:none" />
+      <text
+         sodipodi:linespacing="125%"
+         id="text38065-6-4"
+         y="262.65802"
+         x="75.480484"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20px;line-height:125%;font-family:Arial;-inkscape-font-specification:Arial;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         xml:space="preserve"><tspan
+           y="262.65802"
+           x="75.480484"
+           id="tspan38067-2-9"
+           sodipodi:role="line">Enriched in Bulk Soil</tspan></text>
+    </g>
   </g>
 </svg>
