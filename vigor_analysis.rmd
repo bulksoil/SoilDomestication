@@ -157,7 +157,7 @@ vData <- vData %>%
 ### PCoAs
 Every analysis needs a good PCoA to figure out what is going on.
 ```{r}
-pc <- tidy_pcoa(vData %>% mutate(logRA = log2(RA + 1)), value = "logRA")
+pc <- tidy_pcoa(vData %>% mutate(logRA = log2(RA + 1)) %>% filter(Status != "Pre"), value = "logRA")
 
 pc$axes %>% 
   ggplot(aes(MDS1, MDS2, color = Compartment, shape = Type)) +
