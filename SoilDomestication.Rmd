@@ -10,7 +10,6 @@ Here in this experiment, we have grown rice plants in  soils from rice fields an
 Note that this analysis relies on the tidyMB package. This can be found on my github profile.
 ```{r}
 library(vegan)
-library(broom)
 library(tidyverse)
 library(broom)
 library(biobroom)
@@ -39,12 +38,18 @@ First things first. What is the underlying structure of the data?
 ```{r}
 dPC <- tidy_pcoa(dExp %>% mutate(RA = RA*1000), dist = "bray", value = "RA", keep_loadings = F)
 
-dPC$axes %>% 
-  ggplot(aes(MDS1, MDS2, color = From)) +
-  geom_point(size = 3, alpha = 0.7) +
-  scale_color_manual(values = c("dodgerblue", "gold")) +
-  theme_minimal() +
-  labs(x = paste("PCo1 (", round(nPC$eigen_vals[1] * 100, 2), "%)", sep = ""), y = paste("PCo2 (", round(nPC$eigen_vals[2] * 100, 2), "%)", sep = ""))
+dPC_plot <- dPC$axes %>% 
+  ggplot(aes(MDS1, MDS2, color = paste(Site, From, ""), shape = Compartment)) +
+  geom_point(size = 3, alpha = 0.9) +
+  scale_color_manual(values = c("#92324B","#9e66a7",'#ee5768', '#27afb9')) +
+  labs(x = paste("PCo1 (", round(dPC$eigen_vals[1] * 100, 2), "%)", sep = ""), y = paste("PCo2 (", round(dPC$eigen_vals[2] * 100, 2), "%)", sep = "")) +
+  scale_shape_manual(values = c(1, 18, 16)) +
+  lims(x = c(-1.15, 1.45), y = c(-1.5, 1.1)) +
+  theme(panel.background = element_rect(fill = "white"),
+        panel.border = element_rect(fill = NA),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank())
+dPC_plot
 ```
 
 ```{r}
@@ -61,7 +66,7 @@ dExp %>%
   unnest(map(adon, ~tidy(.)))
 ```
 
-Let's compare the mena dispersion around the  centroid for every compartment and soil type. One could imagine that if rice is "domesticating" a soil, then the rice soils would have less variability than the wild soils because the rice soil is under a similar set of conditions while the wild soils might face more dissimilar conditions.
+Let's compare the mean dispersion around the  centroid for every compartment and soil type. One could imagine that if rice is "domesticating" a soil, then the rice soils would have less variability than the wild soils because the rice soil is under a similar set of conditions while the wild soils might face more dissimilar conditions.
 ```{r}
 dBetaDisp <- dExp %>% 
   ungroup() %>% 
@@ -72,15 +77,15 @@ dBetaDisp <- dExp %>%
 data.frame(group_var = dBetaDisp$group, distance = dBetaDisp$distances) %>% 
   separate(group_var, into = c("Type", "Compartment"), sep = "_") %>% 
   mutate(Compartment  = fct_relevel(factor(Compartment), "Bulk Soil", "Rhizosphere", "Endosphere")) %>% 
-  ggplot(., aes(x = Compartment, y = distance, color = Type)) +
-  geom_boxplot(alpha = 0) +
+  ggplot(., aes(x = Compartment, y = distance, fill = Type)) +
+  geom_boxplot(alpha = 0.5) +
   theme_minimal() +
   labs(x = "", y = "Distance to centroid") +
-  scale_color_manual(values = c("dodgerblue", "goldenrod")) +
+  scale_fill_manual(values = c("#3771c8", "grey80")) +
   theme(axis.text.x = element_text(angle = 30, hjust = 1), text = element_text(size = 12))
 ```
 ## Comparing rhizosphere to bulk soil distances
-Remember that result where the rice rhizosphere is significantly more similar to the bulk soil microbiome than the rhizosphere microbiomes from the native plants? One of the hypotheses that came from that was that rice may be "domesticating" the soil microbiome. If you go to rice field, you will quickly realize that those plants are growing so closely together that, at some point in the season, there all of the roots will overlap and the top layer of soil is only composed of rhizosphere. We can test this hypothesis by growing rice plants in soil from rice fields and soil from uncultivated sites. In order to support this hypothesis that rice is "domesticating" field soil, we need to show a few things. One is that the distance between rhizospehre and bulk soil is greater in the "wild" soils. The other is that the rhizospheres of rice plants growing in wild and domesticated soils are mmore similar than the bulk soils.
+Remember that result where the rice rhizosphere is significantly more similar to the bulk soil microbiome than the rhizosphere microbiomes from the native plants? One of the hypotheses that came from that was that rice may be "domesticating" the soil microbiome. If you go to rice field, you will quickly realize that those plants are growing so closely together that, at some point in the season,  all of the roots will overlap and the top layer of soil is only composed of rhizosphere. We can test this hypothesis by growing rice plants in soil from rice fields and soil from uncultivated sites. In order to support this hypothesis that rice is "domesticating" field soil, we need to show a few things. One is that the distance between rhizospehre and bulk soil is greater in the "wild" soils. The other is that the rhizospheres of rice plants growing in wild and domesticated soils are mmore similar than the bulk soils.
 ```{r}
 d_dist <- dExp %>% 
   long_distance(.)
@@ -97,7 +102,8 @@ rs_vs_bs_plot <- rs_vs_bs %>%
   ggplot(aes(From, value, fill = From)) +
   geom_jitter(width = 0.1, height = 0, alpha = 0.5) +
   geom_boxplot(alpha = 0.3, width = 0.5) +
-  scale_fill_manual(values = c("dodgerblue", "gold")) +
+  #geom_violin() +
+  scale_fill_manual(values = c("#3771c8", "grey80")) +
   scale_shape_manual(values = c(1,4)) +
   theme_minimal() +
   labs(x = "", y = "Bray Dissimilarity") +
@@ -128,16 +134,17 @@ same_comps <- d_dist %>%
   mutate(type = ifelse(From.y == From.x, "aSelf", "bOut")) 
 
 same_comps_plot <- same_comps %>% 
-  ggplot(aes(Compartment.x, value)) +
+  ggplot(aes(paste(type, Compartment.x), value)) +
   geom_jitter(width = 0.1, alpha = 0.7) +
-  geom_boxplot(alpha = 0, width = 0.3) +
-  facet_wrap(~type) +
+  geom_boxplot(alpha = 0, width = 0.5) +
+  #facet_wrap(~type, scales = "free") +
   scale_shape_manual(values = c(1,4)) +
   theme_minimal() +
+  lims(y = c(0.12, 0.95)) +
   labs(x = "", y = "Bray Dissimilarity") +
   theme(axis.text.x = element_text(angle = 30, hjust = 1), text = element_text(size = 12))
 
-same_comps_plot
+same_comps_plot + coord_flip()
 ```
 
 ```{r}
@@ -147,9 +154,7 @@ same_comps %>%
   mutate(mod = map(data, ~lm(value ~ Compartment.x, .))) %>% 
   unnest(map(mod, ~tidy(.)))
 ```
-```{r}
-grid.arrange(rs_vs_bs_plot, same_comps_plot, ncol = 2)
-```
+
 
 
 ## Differentially abundant OTUs
@@ -157,25 +162,25 @@ We see relatively large differences between "domesticated" and "wild" soils. Let
 ```{r}
 ## I'm going to run this, and then save the results to I don't have to do it again.
 
-# dom_deseq <- dExp %>% 
-  # group_by(variable) %>% 
-  # filter(sum(value > 0) / n() > 0.1) %>% 
-  # mutate(group = paste(Compartment, From, sep = ".")) %>% 
-  # group_by(group_var = "DESeq2", Experiment) %>% 
-  # nest() %>% 
-  # mutate(DGEL = map(data, ~suppressMessages(tidyDGEL(., value = "value", group_column = "group", method = "DESeq2", formula = "~ group")))) %>% 
-  # mutate(dds = map(DGEL, ~suppressMessages(DESeq(.)))) %>% 
-  # mutate(BulkSoil = map(dds, ~lfcShrink(., contrast = c("group", "Bulk Soil.A", "Bulk Soil.N")))) %>% 
-  # mutate(Rhizosphere = map(dds, ~lfcShrink(., contrast = c("group", "Rhizosphere.A", "Rhizosphere.N")))) %>% 
-  # mutate(Endosphere = map(dds, ~lfcShrink(., contrast = c("group", "Endosphere.A", "Endosphere.N")))) %>% 
-  # dplyr::select(BulkSoil, Rhizosphere, Endosphere, Experiment) %>% 
-  # gather(key = Compartment, value = results, -Experiment)
+ dom_deseq <- dExp %>% 
+   group_by(variable) %>% 
+   filter(sum(value > 0) / n() > 0.1) %>% 
+   mutate(group = paste(Compartment, From, sep = ".")) %>% 
+   group_by(group_var = "DESeq2", Experiment) %>% 
+   nest() %>% 
+   mutate(DGEL = map(data, ~suppressMessages(tidyDGEL(., value = "value", group_column = "group", method = "DESeq2", formula = "~ group")))) %>% 
+   mutate(dds = map(DGEL, ~suppressMessages(DESeq(.)))) %>% 
+   mutate(BulkSoil = map(dds, ~lfcShrink(., contrast = c("group", "Bulk Soil.A", "Bulk Soil.N")))) %>% 
+   mutate(Rhizosphere = map(dds, ~lfcShrink(., contrast = c("group", "Rhizosphere.A", "Rhizosphere.N")))) %>% 
+   mutate(Endosphere = map(dds, ~lfcShrink(., contrast = c("group", "Endosphere.A", "Endosphere.N")))) %>% 
+   dplyr::select(BulkSoil, Rhizosphere, Endosphere, Experiment) %>% 
+   gather(key = Compartment, value = results, -Experiment)
 
-# dom_deseq %>% 
-  # ungroup() %>% 
-  # write_rds(path = "~/RMB/SoilDomestication/Data/domestication_deseq.rds")
+ dom_deseq %>% 
+   ungroup() %>% 
+   write_rds(path = "~/RMB/SoilDomestication/Data/domestication_deseq.rds")
 
-dom_deseq <- readRDS("~/RMB/SoilDomestication/Data/domestication_deseq.rds")
+#dom_deseq <- readRDS("~/RMB/SoilDomestication/Data/domestication_deseq.rds")
 ```
 
 ```{r}

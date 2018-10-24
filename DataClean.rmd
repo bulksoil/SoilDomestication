@@ -8,7 +8,7 @@ library(tidyverse)
 ```
 
 ```{r}
-otu_table <- read_tsv("~/RMB/SoilDomestication/Data/domOtuTable.tsv.gz")
+otu_table <- read_tsv("~/RMB/SoilDomestication/Data/total_dom_otu_table.tsv.gz")
 tax <- readRDS("~/RMB/Reference/gg_otus_tax.rds")
 ```
 
@@ -25,8 +25,9 @@ cannabis_map <- read_tsv("~/Google Drive/RMB/Analyses/Combo/cannabis1_map.txt") 
   dplyr::select(host_subject_id, sample_type, collection_timestamp, SampleID, latitude, longitude) %>% 
   mutate(host_common_name = "Cannabis", study = "cannabis")
 
-rice_map <- read_tsv("~/Google Drive/RMB/PNASData/FieldExp/field_metadata.txt") %>% 
+rice_map <- read_tsv("~/Google Drive/RMB/Manuscript/PNAS/Edwards_PNAS/Data/FieldExperiment/field_map.txt") %>% 
   mutate(host_common_name = "Rice", sample_type = Compartment) %>% 
+  mutate(SampleID = Description) %>% 
   dplyr::select(host_common_name, sample_type, SampleID) %>% 
   mutate(study = "rice_edwards")
 
@@ -44,8 +45,21 @@ domestication_map <- read_tsv("~/Google Drive/RMB/Analyses/WEEDS/Manuscript/Data
   rename(host_common_name = CommonName) %>% 
   mutate(study = "domestication")
 
+vigor1_map <- read_tsv("~/RMB/SoilDomestication/Data/vigor.map") %>% 
+  mutate(host_common_name = "Rice") %>% 
+  mutate(study = "Seedling Vigor 1")
 
-total_map <- as_tibble(bind_rows(maize_map, grape_map, cannabis_map, rice_map, boechera_map, domestication_map, rice_knight))
+vigor2_map <- read_tsv("~/RMB/SoilDomestication/Data/vigor_2.map") %>% 
+  mutate(host_common_name = "Rice") %>% 
+  rename(Compartment = Cmpt) %>% 
+  mutate(SampleID = gsub(".*:", "", SampleID)) %>% 
+  mutate(study = "Seedling Vigor 2")
+
+sedge_map <- read_tsv("~/RMB/SEDGE/sedge.map") %>% 
+  rename(host_common_name = Species) %>% 
+  mutate(study = "Sedge")
+
+total_map <- as_tibble(bind_rows(maize_map, grape_map, cannabis_map, rice_map, boechera_map, domestication_map, rice_knight, vigor2_map, vigor1_map, sedge_map))
 total_map %>% ungroup() %>% write_tsv("~/RMB/SoilDomestication/Data/total_map.tsv")
 ```
 
@@ -58,7 +72,7 @@ d_data <- otu_table %>%
   filter(Family != "mitochondria" & Class != "Chloroplast") %>% 
   group_by(SampleID) %>% 
   mutate(depth = sum(value)) %>% 
-  group_by(variable) %>% 
+  group_by(variable, study) %>% 
   mutate(RA = value / depth, prevalence = sum(value > 0) / n())
 ```
 
@@ -99,7 +113,7 @@ d_data %>%
 
 ```{r}
 wExp <- d_data %>% 
-  filter(depth > 1000 & prevalence > 0.01) %>% 
+  filter(depth > 1000 & prevalence > 0.1) %>% 
   mutate(Compartment2 = ifelse(is.na(Compartment), sample_type, Compartment)) %>% 
   mutate(Compartment  = Compartment2) %>% 
   select(-Kingdom, -Class, -Order, -Phylum, -Phylum2, -Family, -Genus, -Species, -Cultivar, -Compartment2, -sample_type, -Plant_ID, -collection_timestamp, -longitude, -latitude, -Age)
