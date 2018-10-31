@@ -112,24 +112,24 @@ library(tidyMB)
 ### Load in the relevant data
 ```{r}
 tax <- read_rds("~/RMB/Reference/gg_otus_tax.rds")
-vOTU <- t(read.table("~/RMB/SoilDomestication/Data/vigor_otu_table.tsv", header = T, row.names = 1))
-vMap <- read.table("~/RMB/SoilDomestication/Data/vigor.map", header = T)
-vMap <- vMap[match(row.names(vOTU), vMap$SampleID),]
-vData <- melt(cbind(vMap, vOTU), id.vars = names(vMap)) %>% 
-  inner_join(tax, by = "variable") %>% 
-  filter(Class != "Chloroplast") %>% 
-  filter(Family != "mitochondria") %>% 
-  dplyr::select(-Kingdom, -Phylum, -Class, -Order, -Genus, -Species, -Phylum2, -Family)
+vData <- wExp %>% 
+  filter(study == "Seedling Vigor 1" | study == "Seedling Vigor 2") %>% 
+  mutate(Compartment = gsub("ES", "Endosphere", Compartment), Compartment = gsub("RS", "Rhizosphere", Compartment)) %>% 
+  mutate(Soil = gsub("AA", "ArbA", Soil), Soil = gsub("AN", "ArbN", Soil)) %>% 
+  mutate(Soil = gsub("BA", "BiggsA", Soil), Soil = gsub("BN", "BiggsN", Soil)) %>% 
+  mutate(Soil = gsub("D", "Davis", Soil), Soil = gsub("S", "SacN", Soil))
+write_rds(vData, "~/RMB/SoilDomestication/Data/vigor_data.rds")
 ```
 
 ### Checking sequencing depth for each library
 ```{r}
 vData %>% 
-  group_by(SampleID, Compartment) %>% 
+  group_by(SampleID, Compartment, study) %>% 
   summarise(depth = sum(value)) %>% 
   ggplot(aes(depth, fill = Compartment)) +
   geom_histogram() +
-  facet_grid(.~Compartment)
+  facet_grid(study~Compartment) +
+  scale_x_log10()
 ```
 
 Looks pretty good. There is nothing too low.
@@ -141,7 +141,8 @@ vData <- vData %>%
   group_by(SampleID) %>% 
   mutate(Depth = sum(value), RA = (value / Depth) * 1000) %>%
   group_by(variable) %>% 
-  filter(sum(value > 0) / n() > 0.05)
+  filter(sum(value > 0) / n() > 0.05) %>% 
+  select_if(~!all(is.na(.)))
 
 write_rds(vData, "~/RMB/SoilDomestication/Data/vigor_data.rds")
 vData <- read_rds("~/RMB/SoilDomestication/Data/vigor_data.rds")
@@ -157,19 +158,45 @@ vData <- vData %>%
 ### PCoAs
 Every analysis needs a good PCoA to figure out what is going on.
 ```{r}
-pc <- tidy_pcoa(vData %>% mutate(logRA = log2(RA + 1)) %>% filter(Status != "Pre"), value = "logRA")
+v_pc <- vData %>% 
+  #filter(Soil != "BiggsA") %>% 
+  filter(study == "Seedling Vigor 2") %>% 
+  mutate(logRA = log2(RA + 1)) %>% 
+  group_by(variable) %>% nest() %>% 
+  mutate(variance = map_dbl(data, ~var(.x$logRA))) %>% 
+  arrange(-variance) %>% 
+  head(1000) %>% 
+  unnest() %>% 
+  group_by(Compartment, SampleType) %>% nest() %>% 
+  mutate(pc = map(data, ~tidy_pcoa(.,value = "logRA")$axes)) %>% 
+  unnest(pc)
 
-pc$axes %>% 
-  ggplot(aes(MDS1, MDS2, color = Compartment, shape = Type)) +
+v_pc %>% 
+  ggplot(aes(MDS1, MDS2, color = Soil, shape = Type)) +
   geom_point(size = 3) +
-  scale_color_manual(values = c("#377EB8", "#984EA3", "#E41A1C")) +
-  theme_minimal() 
+  scale_color_manual(values = c("#92324B","#9e66a7",'#ee5768', '#fdc248', '#1ca04f','#27afb9')) +
+  theme_minimal() +
+  facet_wrap(SampleType~Compartment, scale = "free")
 
-pc$axes %>% 
-  ggplot(aes(MDS1, MDS2, color = Type, shape = Status)) +
+v_cap <- vData %>% 
+  filter(SampleType == "Ino") %>% 
+  filter(study == "Seedling Vigor 2" & SampleType != "Inoc") %>% 
+  mutate(logRA = log2(RA + 1)) %>% 
+  group_by(1) %>% nest() %>% 
+  mutate(pc = map(data, ~tidy_cap(.,value = "logRA", formula = "1")$axes)) %>% 
+  unnest(pc)
+
+v_cap %>% 
+  filter(SampleType != "PC") %>% 
+  ggplot(aes(MDS1, MDS2, color = Soil, shape = SampleType)) +
   geom_point(size = 3) +
-  scale_color_manual(values = c("dodgerblue", "gold", "dodgerblue", "gold")) +
-  theme_minimal() 
+  scale_color_manual(values = c("#92324B","#9e66a7",'#ee5768', '#fdc248', '#1ca04f','#27afb9')) +
+  theme(panel.background = element_rect(fill = "white"),
+        panel.border = element_rect(fill = NA),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank())
+
+
 ```
 The top PCoA shows the differences between the compartments and treatment (live vs dead inoculum). The "Pre" category is the micrbiome of the actual inoculum that went into the soils.
 

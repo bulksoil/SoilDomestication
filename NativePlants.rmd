@@ -6,7 +6,6 @@ author: "Joe Edwards"
 
 ```{r}
 library(vegan)
-library(broom)
 library(MASS)
 library(tidyverse)
 library(broom)
@@ -18,12 +17,18 @@ library(RColorBrewer)
 ```{r}
 ## Do Not Run
 #wExp <- readRDS("~/RMB/SoilDomestication/Data/wExp.rds")
-#nExp <- wExp %>% 
-#  filter(Site == "Arkansas") %>% 
-#  ungroup() %>% 
-#  saveRDS("~/RMB/SoilDomestication/Data/native_plants_data.rds")
+nExp <- wExp %>% 
+  filter(Site == "Arkansas") %>% 
+  group_by(variable) %>% 
+  filter(sum(value > 0) / n() > 0.05) %>% 
+  ungroup() %>% 
+  select_if(~!all(is.na(.)))
 
-nExp <- readRDS("~/RMB/SoilDomestication/Data/native_plants_data.rds") %>% filter(SampleID != "Arw.22") %>% 
+write_rds(nExp,"~/RMB/SoilDomestication/Data/native_plants_data.rds")
+
+
+nExp <- readRDS("~/RMB/SoilDomestication/Data/native_plants_data.rds") %>% 
+  filter(SampleID != "Arw.22") %>% 
   mutate(cpm = round(value * (1000000 / depth)))
 tax <- readRDS("~/RMB/SoilDomestication/Data/gg_otus_tax.rds")
 ```
@@ -40,15 +45,21 @@ raref <- function(x, sampling_depth, value = "value", otus = "variable") {
 ```{r} 
 nPC <- tidy_pcoa(nExp %>% group_by(variable) %>% filter(sum(value) > 0) %>% mutate(logRA = log2(RA*1000 + 1)), dist = "bray", value = "logRA", keep_loadings = T)
 
-nPC$axes %>% 
-  ggplot(aes(MDS1, MDS2, color = host_common_name)) +
-  geom_point(size = 3, alpha = 0.7) +
-  stat_ellipse(aes(group = Compartment), color = "black") +
+nPC_plot <- nPC$axes %>% 
+  ggplot(aes(MDS1, MDS2, color = host_common_name, shape = Compartment)) +
+  geom_point(size = 3, alpha = 0.9) +
+  #stat_ellipse(aes(group = Compartment), color = "black") +
   scale_color_brewer(palette = "Set1", direction = -1) +
-  theme_minimal() +
+  scale_shape_manual(values = c(1, 18, 16)) +
   labs(x = paste("PCo1 (", round(nPC$eigen_vals[1] * 100, 2), "%)", sep = ""), 
        y = paste("PCo2 (", round(nPC$eigen_vals[2] * 100, 2), "%)", sep = "")) +
-  theme(text = element_text(size = 12))
+  theme(text = element_text(size = 12),
+        panel.background = element_rect(fill = "white"),
+        panel.border = element_rect(fill = NA),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank())
+
+nPC_plot
 ```
 ```{r}
 nPC$axes %>% 
@@ -59,6 +70,7 @@ nPC$axes %>%
   mutate(mod = map(data, ~aov(value ~ Compartment + host_common_name, .))) %>% 
   unnest(map(mod, ~tidy(.))) %>% 
   filter(term == "host_common_name")
+
 
 nPC$axes %>% 
   dplyr::select(SampleID, host_common_name, Compartment, MDS1:MDS5) %>% 
@@ -249,32 +261,32 @@ Let's find the OTUs that are different between the microbiomes of the different 
 ```{r}
 ## I commented out this whole chunk because I don't want to run it again. I saved the results as an rds object and will read it in for working in the future.
 
-# DESeq2_plant <- nExp %>% 
-  # filter(Compartment != "Bulk Soil") %>% 
-  # group_by(variable) %>% 
-  # filter(sum(value > 0) / n() > 0.1) %>% 
-  # mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
-  # mutate(group = paste(Compartment, host_common_name, sep = ".")) %>% 
-  # group_by(group_var = "DESeq2") %>% 
-  # nest() %>% 
-  # mutate(DGEL = map(data, ~tidyDGEL(., value = "value", group_column = "group", method = "DESeq2", formula = "~ group"))) %>% 
-  # mutate(dds = map(DGEL, ~DESeq(.))) %>% 
-  # mutate(Sedge_RS = map(dds, ~lfcShrink(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Sedge")))) %>% 
-  # mutate(Mudplantain_RS = map(dds, ~lfcShrink(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Mudplantain")))) %>% 
-  # mutate(Redstem_RS = map(dds, ~lfcShrink(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Redstem")))) %>% 
-  # mutate(Sedge_ES = map(dds, ~lfcShrink(., contrast = c("group", "Endosphere.Rice", "Endosphere.Sedge")))) %>% 
-  # mutate(Mudplantain_ES = map(dds, ~lfcShrink(., contrast = c("group", "Endosphere.Rice", "Endosphere.Mudplantain")))) %>% 
-  # mutate(Redstem_ES = map(dds, ~lfcShrink(., contrast = c("group", "Endosphere.Rice", "Endosphere.Redstem")))) %>% 
-  # dplyr::select(Mudplantain_RS, Sedge_RS, Redstem_RS, Mudplantain_ES, Sedge_ES, Redstem_ES, group_var) %>% 
-  # gather(key = taxon, value = results, -group_var)
+DESeq2_plant <- nExp %>% 
+   filter(Compartment != "Bulk Soil") %>% 
+   group_by(variable) %>% 
+   filter(sum(value > 0) / n() > 0.1) %>% 
+   mutate(host_common_name = relevel(factor(host_common_name), ref = "Rice")) %>% 
+   mutate(group = paste(Compartment, host_common_name, sep = ".")) %>% 
+   group_by(group_var = "DESeq2") %>% 
+   nest() %>% 
+   mutate(DGEL = map(data, ~tidyDGEL(., value = "value", group_column = "group", method = "DESeq2", formula = "~ group"))) %>% 
+   mutate(dds = map(DGEL, ~DESeq(.))) %>% 
+   mutate(Sedge_RS = map(dds, ~lfcShrink(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Sedge")))) %>% 
+   mutate(Mudplantain_RS = map(dds, ~lfcShrink(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Mudplantain")))) %>% 
+   mutate(Redstem_RS = map(dds, ~lfcShrink(., contrast = c("group", "Rhizosphere.Rice", "Rhizosphere.Redstem")))) %>% 
+   mutate(Sedge_ES = map(dds, ~lfcShrink(., contrast = c("group", "Endosphere.Rice", "Endosphere.Sedge")))) %>% 
+   mutate(Mudplantain_ES = map(dds, ~lfcShrink(., contrast = c("group", "Endosphere.Rice", "Endosphere.Mudplantain")))) %>% 
+   mutate(Redstem_ES = map(dds, ~lfcShrink(., contrast = c("group", "Endosphere.Rice", "Endosphere.Redstem")))) %>% 
+   dplyr::select(Mudplantain_RS, Sedge_RS, Redstem_RS, Mudplantain_ES, Sedge_ES, Redstem_ES, group_var) %>% 
+   gather(key = taxon, value = results, -group_var)
 
-# saveRDS(DESeq2_plant, file = "~/RMB/SoilDomestication/Data/weeds_deseq.rds")
+saveRDS(DESeq2_plant, file = "~/RMB/SoilDomestication/Data/weeds_deseq.rds")
 ```
 
 ```{r}
 DESeq2_plant <- read_rds("~/RMB/SoilDomestication/Data/weeds_deseq.rds")
 
-DESeq2_plant %>% 
+np_MA_plot <- DESeq2_plant %>% 
   unnest(map(results, ~tidy(.))) %>% 
   separate(taxon, sep = "_", into = c("Taxon", "Compartment")) %>% 
   mutate(direction = ifelse(estimate < 0, "Weed", "Rice")) %>% 
@@ -296,6 +308,8 @@ DESeq2_plant %>%
   scale_alpha_manual(values = c(0.1, 0.7)) +
   scale_color_manual(values = c("#FF7F00", "grey20", "#984EA3", "#4DAF4A", "#377EB8")) +
   theme_minimal()
+
+np_MA_plot
 ```
 
 Why do this analysis? From our data so far, it appears that rice is an outlier. There must be OTUs that set it apart from the other plants. There are likely OTUs that are commonly enriched in rice compared to the other plants and OTUs that are commonly enriched in the other plants compared to rice. Let's go ahead and make some venn diagrams to figure this out.
@@ -324,10 +338,10 @@ rs_venn_weed <- list(Mudplantain = deseq_results %>% filter(Compartment == "Rhiz
                      Sedge = deseq_results %>% filter(Compartment == "Rhizosphere" & direction == "Weed" & Taxon == "Sedge") %>% pull(variable),
                      Redstem = deseq_results %>% filter(Compartment == "Rhizosphere" & direction == "Weed" & Taxon == "Redstem") %>% pull(variable))
 
-venn.diagram(es_venn_rice, filename = "r_es_venn.svg", imagetype = "svg", height = 2, width = 2, euler.d = T, fill = c("darkorange1", "steelblue", "orchid4"), alpha = rep(0.3, 3), lwd = 0, category.names=c("", "", ""))
-venn.diagram(rs_venn_rice, filename = "r_rs_venn.svg", imagetype = "svg", height = 2, width = 2, euler.d = T, fill = c("darkorange1", "steelblue", "orchid4"), alpha = rep(0.3, 3), lwd = 0, category.names=c("", "", ""))
-venn.diagram(es_venn_weed, filename = "w_es_venn.svg", imagetype = "svg", height = 2, width = 2, euler.d = T, fill = c("darkorange1", "steelblue", "orchid4"), alpha = rep(0.3, 3), lwd = 0, category.names=c("", "", ""))
-venn.diagram(rs_venn_weed, filename = "w_rs_venn.svg", imagetype = "svg", height = 2, width = 2, euler.d = T, fill = c("darkorange1", "steelblue", "orchid4"), alpha = rep(0.3, 3), lwd = 0, category.names=c("", "", ""))
+venn.diagram(es_venn_rice, filename = "~/RMB/SoilDomestication/Figures/Figure3/r_es_venn.svg", imagetype = "svg", height = 2, width = 2, euler.d = T, fill = c("darkorange1", "steelblue", "orchid4"), alpha = rep(0.3, 3), lwd = 0, category.names=c("", "", ""))
+venn.diagram(rs_venn_rice, filename = "~/RMB/SoilDomestication/Figures/Figure3/r_rs_venn.svg", imagetype = "svg", height = 2, width = 2, euler.d = T, fill = c("darkorange1", "steelblue", "orchid4"), alpha = rep(0.3, 3), lwd = 0, category.names=c("", "", ""))
+venn.diagram(es_venn_weed, filename = "~/RMB/SoilDomestication/Figures/Figure3/w_es_venn.svg", imagetype = "svg", height = 2, width = 2, euler.d = T, fill = c("darkorange1", "steelblue", "orchid4"), alpha = rep(0.3, 3), lwd = 0, category.names=c("", "", ""))
+venn.diagram(rs_venn_weed, filename = "~/RMB/SoilDomestication/Figures/Figure3/w_rs_venn.svg", imagetype = "svg", height = 2, width = 2, euler.d = T, fill = c("darkorange1", "steelblue", "orchid4"), alpha = rep(0.3, 3), lwd = 0, category.names=c("", "", ""))
 ```
 
 There are quite a few OTUs specifically enriched in rice or the weeds, let's see what phyla these belong to.
