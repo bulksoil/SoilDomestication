@@ -1,0 +1,71 @@
+---
+title: "Pheno format"
+output: html_notebook
+---
+
+This script formats the phenotype data gathered in both experiments so that they fit the nomenclature used for the rest of the paper. 
+
+```{r}
+library(tidyverse)
+```
+
+Load and format the data from the first experiment. I took it from Joe's github so make sure that's the latest version available. 
+```{r}
+pheno1 <- read_tsv("../Data/seedling_vigor.tsv") 
+
+pheno1 <- pheno1 %>% 
+  mutate(Trt = gsub("\\(-\\)", "NC", Trt)) %>% 
+  mutate(Trt = gsub("-", "NC", Trt)) %>% 
+  mutate(Trt = gsub("\\(\\+\\)", "Ino", Trt)) %>% 
+  mutate(Tray = factor(BinNumber)) %>% 
+  mutate(Study = "Expt1") %>% 
+  rename(Treatment = Trt,
+         Shoot_fresh_weight = Mass,
+         Shoot_length = Height) %>% 
+  select(Soil, Treatment, Shoot_length, Shoot_fresh_weight, Study, Tray) %>% 
+  gather(key = "Trait", value = "Value", Shoot_length:Shoot_fresh_weight)
+```
+
+Load and format the data from the second experiment. This experiment includes two conditioned soils (ArbA and BiggsA) and three naive soils (ArbN, BiggsN, and SacN). It also includes soil collected in Davis, which has a unique history: it used to grow rice years ago but not anymore (that we know of). For now I'm labelling Davis's history "X" until we come with something better
+
+```{r}
+pheno2 <- read.table("../Data/pheno_data_corrected.txt", sep = "\t", header = TRUE)
+
+pheno2 <-  pheno2 %>% 
+  #filter(Soil != "Dav") %>% 
+  mutate(
+    Study = "Expt2",
+    Tray = factor(Tray),
+    Soil = fct_recode(Soil, 
+                      ArbA = "AA",
+                      ArbN = "AN",
+                      BiggsA = "BA",
+                      BiggsN = "BN",
+                      DavX = "Dav",
+                      SacN = "Sac")) %>% 
+  select(Soil, Treatment, Shoot_length, Shoot_fresh_weight, Shoot_dry_weight, Root_dry_weight, Study, Tray) %>% 
+  gather(key = "Trait", value = "Value", Shoot_length:Root_dry_weight)
+```
+
+Join both datasets and save
+```{r}
+pheno.all <- rbind(pheno1, pheno2) %>% 
+  mutate(History = case_when(
+    Soil == "ArbA" | Soil == "BiggsA" ~ "Conditioned",
+    Soil == "ArbN" | Soil == "BiggsN" | Soil == "SacN" ~ "Naive",
+    Soil == "DavX" ~ "X"),
+    His.Trt = interaction(History, Treatment),
+    Inoculum = fct_recode(Treatment,
+                          "SoilMB" = "Ino",
+                          "Mock" = "NC"),
+    Soil = fct_recode(Soil, 
+                      "Arbuckle Conditioned" = "ArbA",
+                      "Arbuckle Naive" = "ArbN",
+                      "Biggs Conditioned" = "BiggsA",
+                      "Biggs Naive" = "BiggsN",
+                      "Davis X" = "DavX",
+                      "Sacramento Naive" = "SacN"))
+
+saveRDS(pheno.all, "../Data/pheno_all.RDS")
+```
+

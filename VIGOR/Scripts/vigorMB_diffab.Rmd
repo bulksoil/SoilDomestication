@@ -1,0 +1,203 @@
+---
+title: "vigorMB_diffab"
+output: html_notebook
+---
+
+This script is a preliminary analysis to the differentially abundance trends observed in the second experiment
+
+```{r}
+source("../General/rmb_functions.R")
+library(DESeq2)
+library(biobroom)
+library(tidyverse)
+
+soil.pal <- c("#92324B","#9e66a7",'#ee5768', '#fdc248', '#1ca04f','#27afb9')
+phy.pal <- c("gray50",
+             RColorBrewer::brewer.pal(8, "Set2")[1:8],
+             RColorBrewer::brewer.pal(11, "RdYlBu")[7:10])
+
+otu <- readRDS("../Data/formatted_otu_table.RDS")
+map <- readRDS("../Data/formatted_map.RDS")
+tax <- read_tax("../General/gg_13_8_97_tax.tsv")
+```
+```{r}
+otu.ra <- rel_ab(otu)
+otu.ra.tidy <- tidy_otu(as.data.frame(otu.ra))
+
+tax <- expand_proteo(tax)
+top.tax <- get_top_taxa(otu.ra, tax, rank = "PhyClass", n = 12)
+tax <- collapse_other(tax, top.tax)
+```
+
+First, let's run a model focusing on the correlation between OTU abundances and the phenotypic values recorded for the plants included in the sequencing libraries
+
+```{r}
+#This is the original mapping file for the sequencing run that includes the second phenotyping experiment. This one is needed to get the Tray numbers, which I need to link t to the phenotype values 
+goodmap <- readRDS("../Data/whole_map.RDS")
+
+#This is the phentoype data frame
+pheno <- read.table("../Data/pheno_data_corrected.txt", sep = "\t", header = TRUE)
+
+map2 <- filter(map, Study == "Expt2") %>% 
+  inner_join(select(goodmap, SampleID, Tray, Column, Row)) %>% 
+  inner_join(select(pheno, -Soil, -Treatment), by = c("Tray", "Column", "Row"))
+```
+
+Let's explore the values for shoot weight and height for these samples
+```{r}
+map2 %>% 
+  ggplot(aes(Soil, Shoot_length, color = Soil)) +
+  geom_point(size = 3) +
+  facet_wrap(~ Study + Inoculum) +
+  scale_color_manual(values = soil.pal) +
+  theme_bw() +
+  theme(text = element_text(size = 20))
+
+map2 %>% 
+  ggplot(aes(Soil, Shoot_fresh_weight, color = Soil)) +
+  geom_point(size = 3) +
+  facet_wrap(~ Study + Inoculum) +
+  scale_color_manual(values = soil.pal) +
+  theme_bw() +
+  theme(text = element_text(size = 20))
+```
+
+It seems that, for this particular subset of samples, height captures the overall trends observed in the phenotype analyses, ie, ArbA and BiggsA displaying lower values than the rest. I'll focus on this trait for this first analysis. 
+```{r}
+otu2 <- otu[,colnames(otu) %in% map2$SampleID]
+
+
+dds <- DESeqDataSetFromMatrix(otu2,
+                                colData = map2,
+                                design = ~ Shoot_length)
+
+vsd <- varianceStabilizingTransformation(dds, blind = FALSE) %>% assay
+vsd[vsd < 0.0] <- 0.0
+
+dds <- DESeq(dds)
+
+res <- results(dds, name = "Shoot_length") %>% tidy() %>% mutate(Trait = "Length")
+```
+
+Get the correlation of abundances with the shoot length 
+```{r}
+sig.df <- res %>% 
+  filter(p.adjusted < 0.05) %>% 
+  rename(gene = "OTU_ID") %>% 
+  mutate(Direction = ifelse(estimate > 0, "Positive", "Negative"))
+
+zscores <- as.data.frame(vsd) %>% 
+  mutate(OTU_ID = row.names(.)) %>% 
+  gather(key = "SampleID", value = "Counts", - OTU_ID) %>% 
+  inner_join(map2, by = "SampleID") %>% 
+  group_by(OTU_ID) %>% 
+  mutate(zscore = (Counts - mean(Counts))/sd(Counts)) %>% 
+  ungroup()
+
+zscores %>% 
+  inner_join(sig.df, by = "OTU_ID") %>% 
+  ggplot(aes(zscore, Shoot_length)) +
+  geom_point(aes(color = Soil2, shape = Inoculum), size = 3) +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = soil.pal) +
+  scale_shape_manual(values = c(1,16)) +
+  facet_grid(. ~ Direction, scales = "free") +
+  theme_bw() +
+  theme(text = element_text(size = 20))
+```
+
+Inspect the taxonomic spread of the DAOs
+```{r}
+colors <- data.frame(PhyClass2 = levels(tax$PhyClass2),
+                     Color = as.character(phy.pal))
+
+phy.sig <- otu.ra.tidy %>% 
+  inner_join(sig.df, by = "OTU_ID") %>%   
+  inner_join(tax) %>% 
+  inner_join(map2, by = "SampleID") %>% 
+  group_by(Direction, Treatment, Soil2, PhyClass2, SampleID) %>%
+  summarise(RelAb = sum(Count))%>% 
+  group_by(Direction, Treatment, Soil2, PhyClass2) %>%
+  summarise(MeanRelAb = mean(RelAb)) 
+
+colors.pheno <- filter(colors, PhyClass2 %in% phy.sig$PhyClass2)$Color %>% as.character
+
+# Plot the number of DAOs
+sig.df %>%   
+  inner_join(tax) %>% 
+  ggplot(aes(Direction, fill = PhyClass2)) +
+  geom_bar() +
+  scale_fill_manual(values = colors.pheno) +
+  theme_minimal() +
+  theme(text = element_text(size = 15))
+
+#Plot the mean relativa abundance of DAOs in each soil and treatment combination
+ggplot(phy.sig) +
+  geom_bar(aes(Soil2, y=MeanRelAb, fill = PhyClass2), stat = "identity") +
+  scale_fill_manual(values = colors.pheno) +
+  facet_grid(Direction~Treatment, scales = "free") +
+  theme_minimal() +
+  theme(text = element_text(size = 15),
+        axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+Alternatively, run a model that focuses on the soil history rather than the correlation with a phenotypic trait
+```{r}
+dds.his <- DESeqDataSetFromMatrix(otu2,
+                                colData = map2,
+                                design = ~ His.Trt)
+dds.his <- DESeq(dds.his)
+
+ino.res <- results(dds.his, contrast = c("His.Trt", "Naive.Ino", "Conditioned.Ino")) %>% tidy() %>% mutate(Contrast = "Ino")
+nc.res <- results(dds.his, contrast = c("His.Trt", "Naive.NC", "Conditioned.NC")) %>% tidy() %>% mutate(Contrast = "NC")
+
+contra.his <- bind_rows(ino.res, nc.res) %>% rename(gene = "OTU_ID")
+```
+
+Check the number of DAOs 
+```{r}
+sig.his <- contra.his %>% 
+  filter(p.adjusted < 0.05) %>% 
+  mutate(Enrichment = ifelse(estimate > 0, "Naive", "Conditioned")) %>% 
+  inner_join(tax, by = "OTU_ID")
+
+colors.his <- filter(colors, PhyClass2 %in% sig.his$PhyClass2)$Color %>% as.character
+
+sig.his %>% 
+  group_by(Contrast, Enrichment, PhyClass2) %>% 
+  dplyr::count() %>% 
+  ggplot(aes(Enrichment, n, fill = PhyClass2)) +
+  geom_bar(stat = "identity")  +
+  scale_fill_manual(values = colors.his) +
+  facet_grid(. ~ Contrast) +
+  theme_minimal() +
+  theme(text = element_text(size = 15),
+        axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+Relative abundance of DAOs
+```{r}
+otu.ra.tidy %>% 
+  inner_join(sig.his, by = "OTU_ID") %>%   
+  inner_join(map2, by = "SampleID") %>% 
+  group_by(Contrast, Enrichment, Inoculum, Soil2, PhyClass2, SampleID) %>%
+  summarise(RelAb = sum(Count)) %>% 
+  group_by(Contrast, Enrichment, Inoculum, Soil2, PhyClass2) %>%
+  summarise(MeanRelAb = mean(RelAb)) %>% 
+  ggplot() +
+  geom_bar(aes(Soil2, y=MeanRelAb, fill = PhyClass2), stat = "identity") +
+  scale_fill_manual(values = colors.his) +
+  facet_grid(Contrast + Enrichment~Inoculum, scales = "free") +
+  theme_minimal() +
+  theme(text = element_text(size = 15),
+        axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+saveRDS(res, "../Tables/height_dao.RDS")
+saveRDS(contra.his, "../Tables/history_dao.RDS")
+
+```
+

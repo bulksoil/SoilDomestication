@@ -1,0 +1,208 @@
+---
+title: "vigorMB_beta"
+output: html_notebook
+---
+
+```{r}
+source("../General/rmb_functions.R")
+library(DESeq2)
+library(ggdendro)
+library(tidyverse)
+
+soil.pal <- c("#92324B","#9e66a7",'#ee5768', '#fdc248', '#1ca04f','#27afb9')
+phy.pal <- c("gray50",
+             RColorBrewer::brewer.pal(8, "Set2")[1:8],
+             RColorBrewer::brewer.pal(11, "RdYlBu")[7:10])
+
+otu <- readRDS("../Data/formatted_otu_table.RDS")
+map <- readRDS("../Data/formatted_map.RDS")
+tax <- read_tax("../General/gg_13_8_97_tax.tsv")
+```
+
+Get the top phylum/classes and collapse the rest into the "other" category
+```{r}
+otu.ra <- rel_ab(otu)
+otu.ra.tidy <- tidy_otu(as.data.frame(otu.ra))
+
+tax <- expand_proteo(tax)
+top.tax <- get_top_taxa(otu.ra, tax, rank = "PhyClass", n = 12)
+tax <- collapse_other(tax, top.tax)
+```
+
+Calculate beta diversity and PCos. I am using log transformed relative abundances because I couldn't use DESeq2 to normalize the whole dataset. This was because there is no single OTU with at least one count in all the samples, a requirement to run the default pipeline. 
+```{r}
+dist <- beta_div_dist(otu.ra %>% log_norm)
+
+pcoa.axes <- pcoa_axes(dist, map)
+pcoa.eigval <- pcoa_eigval(dist, map)
+
+ggplot(pcoa.axes, aes(Axis.1, Axis.2, color = Soil2, shape = paste(Study, Inoculum, sep = " / "))) +
+  geom_point(size = 3, stroke = 2) +
+  scale_shape_manual(values = c(2,17,1,16), name = "Study / Treatment") +
+  scale_color_manual(values = soil.pal, name = "Soil") +
+  xlab(paste("PCo1 (", pcoa.eigval$Eigval[1], "%)", sep = "")) +
+  ylab(paste("PCo2 (", pcoa.eigval$Eigval[2], "%)", sep = "")) +
+  theme_minimal() +
+  theme(text = element_text(size = 20))
+```
+
+
+Plot the dendogram and taxonomic profiles
+```{r}
+dd.row <- as.dendrogram(hclust(as.dist(dist), method = "average"))
+ddata_x <- dendro_data(dd.row)
+
+dendro.p <- ggplot(segment(ddata_x)) +
+  geom_segment(aes(x=x, y=-y, xend=xend, yend=-yend))
+
+labs <- label(ddata_x) %>% 
+  inner_join(map, by = c("label" = "SampleID"))
+
+phy.ra <- otu.ra.tidy %>% 
+  inner_join(tax) %>% 
+  group_by(SampleID, PhyClass2) %>%
+  summarise(Total = sum(Count)) %>% 
+  group_by(SampleID) %>% 
+  mutate(RelAb = (Total/sum(Total))) %>% 
+  inner_join(map, by = "SampleID") %>% 
+  select(SampleID, PhyClass2, RelAb)
+
+phy.ra <- inner_join(labs, phy.ra,  by = c("label" = "SampleID"))
+
+dendro.p + 
+  geom_bar(data = phy.ra, 
+           aes(x=x, y=RelAb, fill = PhyClass2), stat = "identity") +
+  geom_point(data=labs,
+             aes(x=x, y=-.025, colour=Soil2, shape = paste(Study, Inoculum, sep = " / ")), size = 4, stroke = 1) +
+  scale_color_manual(values = soil.pal, name = "Soil") +
+  scale_fill_manual(values = phy.pal) +
+  #scale_shape_manual(values = c(16,1)) +
+  scale_shape_manual(values = c(2,17,1,16), name = "Study / Treatment") +
+  coord_flip(expand = T) +
+  theme_minimal() +
+  theme(text = element_text(size = 15))
+```
+
+Visaulize them separately. In these analyses I used variance stabilizing transformed counts as the clustering with this approach was neater
+First experiment
+```{r}
+map1 <- filter(map, Study == "Expt1")
+otu1 <- otu[,colnames(otu) %in% map1$SampleID]
+
+dds1 <- DESeqDataSetFromMatrix(otu1,
+                                colData = map1,
+                                design = ~ Soil + Inoculum)
+
+vsd1 <- varianceStabilizingTransformation(dds1, blind = FALSE) %>% assay
+vsd1[vsd1 < 0.0] <- 0.0
+
+dist1 <- beta_div_dist(vsd1)
+
+pcoa.axes1 <- pcoa_axes(dist1, map1)
+pcoa.eigval1 <- pcoa_eigval(dist1, map1)
+
+ggplot(pcoa.axes1, aes(Axis.1, Axis.2, color = Soil2, shape = paste(Study, Inoculum, sep = " / "))) +
+  geom_point(size = 3, stroke = 2) +
+  scale_shape_manual(values = c(2,17,1,16), name = "Study / Treatment") +
+  scale_color_manual(values = soil.pal[c(1,2,3,6)], name = "Soil") +
+  xlab(paste("PCo1 (", pcoa.eigval1$Eigval[1], "%)", sep = "")) +
+  ylab(paste("PCo2 (", pcoa.eigval1$Eigval[2], "%)", sep = "")) +
+  theme_minimal() +
+  theme(text = element_text(size = 20))
+```
+
+```{r}
+dd.row1 <- as.dendrogram(hclust(as.dist(dist1), method = "average"))
+ddata_x1 <- dendro_data(dd.row1)
+
+dendro.p1 <- ggplot(segment(ddata_x1)) +
+  geom_segment(aes(x=x, y=-y, xend=xend, yend=-yend))
+
+labs1 <- label(ddata_x1) %>% 
+  inner_join(map1, by = c("label" = "SampleID"))
+
+phy.ra1 <- otu.ra.tidy %>% 
+  inner_join(tax) %>% 
+  group_by(SampleID, PhyClass2) %>%
+  summarise(Total = sum(Count)) %>% 
+  group_by(SampleID) %>% 
+  mutate(RelAb = (Total/sum(Total))) %>% 
+  inner_join(map1, by = "SampleID") %>% 
+  select(SampleID, PhyClass2, RelAb)
+
+phy.ra1 <- inner_join(labs1, phy.ra1,  by = c("label" = "SampleID"))
+
+dendro.p1 + 
+  geom_bar(data = phy.ra1, 
+           aes(x=x, y=RelAb, fill = PhyClass2), stat = "identity") +
+  geom_point(data=labs1,
+             aes(x=x, y=-.025, colour=Soil2, shape = paste(Study, Inoculum, sep = " / ")), size = 4, stroke = 1) +
+  scale_color_manual(values = soil.pal[c(1,2,3,6)], name = "Soil") +
+  scale_fill_manual(values = phy.pal) +
+  scale_shape_manual(values = c(2,17), name = "Study / Treatment") +
+  coord_flip(expand = T) +
+  theme_minimal() +
+  theme(text = element_text(size = 15))
+```
+
+Visaulize them separately 
+First experiment
+```{r}
+map2 <- filter(map, Study == "Expt2")
+otu2 <- otu[,colnames(otu) %in% map2$SampleID]
+
+dds2 <- DESeqDataSetFromMatrix(otu2,
+                                colData = map2,
+                                design = ~ Soil + Inoculum)
+
+vsd2 <- varianceStabilizingTransformation(dds2, blind = FALSE) %>% assay
+vsd2[vsd2 < 0.0] <- 0.0
+
+dist2 <- beta_div_dist(vsd2)
+
+pcoa.axes2 <- pcoa_axes(dist2, map2)
+pcoa.eigval2 <- pcoa_eigval(dist2, map2)
+
+ggplot(pcoa.axes2, aes(Axis.1, Axis.2, color = Soil2, shape = paste(Study, Inoculum, sep = " / "))) +
+  geom_point(size = 3, stroke = 2) +
+  scale_shape_manual(values = c(1,16), name = "Study / Treatment") +
+  scale_color_manual(values = soil.pal, name = "Soil") +
+  xlab(paste("PCo1 (", pcoa.eigval2$Eigval[1], "%)", sep = "")) +
+  ylab(paste("PCo2 (", pcoa.eigval2$Eigval[2], "%)", sep = "")) +
+  theme_minimal() +
+  theme(text = element_text(size = 20))
+```
+
+```{r}
+dd.row2 <- as.dendrogram(hclust(as.dist(dist2), method = "average"))
+ddata_x2 <- dendro_data(dd.row2)
+
+dendro.p2 <- ggplot(segment(ddata_x2)) +
+  geom_segment(aes(x=x, y=-y, xend=xend, yend=-yend))
+
+labs2 <- label(ddata_x2) %>% 
+  inner_join(map2, by = c("label" = "SampleID"))
+
+phy.ra2 <- otu.ra.tidy %>% 
+  inner_join(tax) %>% 
+  group_by(SampleID, PhyClass2) %>%
+  summarise(Total = sum(Count)) %>% 
+  group_by(SampleID) %>% 
+  mutate(RelAb = (Total/sum(Total))) %>% 
+  inner_join(map2, by = "SampleID") %>% 
+  select(SampleID, PhyClass2, RelAb)
+
+phy.ra2 <- inner_join(labs2, phy.ra2,  by = c("label" = "SampleID"))
+
+dendro.p2 + 
+  geom_bar(data = phy.ra2, 
+           aes(x=x, y=RelAb, fill = PhyClass2), stat = "identity") +
+  geom_point(data=labs2,
+             aes(x=x, y=-.025, colour=Soil2, shape = paste(Study, Inoculum, sep = " / ")), size = 4, stroke = 1) +
+  scale_color_manual(values = soil.pal, name = "Soil") +
+  scale_fill_manual(values = phy.pal) +
+  scale_shape_manual(values = c(1,16), name = "Study / Treatment") +
+  coord_flip(expand = T) +
+  theme_minimal() +
+  theme(text = element_text(size = 15))
+```

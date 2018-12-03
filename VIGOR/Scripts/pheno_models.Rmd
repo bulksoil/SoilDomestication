@@ -1,0 +1,251 @@
+---
+title: "Pheno models"
+output: html_notebook
+---
+
+This script runs lme models to test if the soil history affects diverse plant traits
+
+```{r}
+library(tidyverse)
+pheno.all <- readRDS("../Data/pheno_all.RDS")
+
+soil.pal <- c("#92324B","#9e66a7",'#ee5768', '#fdc248', '#1ca04f','#27afb9')
+soil.pal.nodav <-  c("#92324B","#9e66a7",'#ee5768', '#fdc248', '#27afb9')
+```
+
+Define the functions 
+```{r}
+
+#This function runs a model on all the data
+run_lme <- function(df){
+  lmerTest::lmer(Value ~ His.Trt + (1|Study/Soil/Tray), data = df)
+}
+
+#This function runs a model within each study
+run_lme_st <- function(df){
+  lmerTest::lmer(Value ~ His.Trt + (1|Soil/Tray), data = df)
+}
+
+run_tukey <- function(fit){
+  multcomp::glht(fit, linfct = multcomp::mcp(His.Trt = "Tukey")) %>% summary()
+}
+
+get_letters <- function(tukey){
+  multcomp::cld(tukey, level = 0.05) %>% 
+    .$mcletters %>% 
+    .$Letters %>% 
+    as.data.frame() %>% 
+    rename(Letter = ".") %>% 
+    mutate(His.Trt = row.names(.))
+}
+
+#This function is to define interesting contrasts instead of running all pairwise comparisons a la Tukey
+run_contrasts <- function(fit){
+  multcomp::glht(fit, 
+                 linfct = multcomp::mcp(His.Trt = c(
+                   "Naive.Ino - Conditioned.Ino = 0",
+                   "Naive.NC - Conditioned.NC = 0",
+                   "Naive.NC - Naive.Ino = 0", 
+                   "Conditioned.NC - Conditioned.Ino = 0")
+                   )
+                 ) %>% 
+    summary() %>% 
+    broom::tidy()
+}
+
+```
+
+I am still not sure what to do about Davis, so I ran analyses both with and without it. I will first focus on the filtered dataset. 
+```{r}
+pheno.nodav <- filter(pheno.all, Soil != "Davis X")
+```
+
+
+This chunk looks at the models in which the data from both experiments is included. Since only fresh weight and height were recorded for both, only those two traits are included
+```{r}
+by.trait.nodav <- pheno.nodav %>% 
+  filter(Trait == "Shoot_fresh_weight" | Trait == "Shoot_length") %>% 
+  group_by(Trait) %>% 
+  nest
+
+by.trait.nodav <- by.trait.nodav %>% 
+  mutate(fit = map(data, run_lme),
+         tukey = map(fit, run_tukey),
+         letters = map(tukey, get_letters))
+
+by.trait.letters.nodav <- pheno.nodav %>% 
+  group_by(History, Trait, Treatment, His.Trt, Inoculum) %>% 
+  summarise(Max = max(Value, na.rm = T)) %>% 
+  ungroup() %>%
+  inner_join(unnest(by.trait.nodav, letters))
+
+pheno.nodav%>%
+  filter(Trait == "Shoot_fresh_weight") %>% 
+  ggplot(aes(History, Value)) +
+  geom_jitter(aes(shape = paste(Study, Inoculum, sep = " / "), color = Soil),
+              alpha = 0.6,
+              size = 2) +
+  geom_text(data = filter(by.trait.letters.nodav, Trait == "Shoot_fresh_weight"), 
+            aes(x = History, y = Max + .1, label = Letter),
+            size = 7) +
+  ylab("Shoot Fresh Weight (g)") +
+  scale_color_manual(values = soil.pal.nodav) +
+  scale_shape_manual(values = c(2,17,1,16), name = "Study / Inoculum") +
+  facet_grid(. ~ Inoculum, scales = "free") +
+  theme_minimal() +
+  theme(text = element_text(size = 20))
+
+pheno.nodav%>%
+  filter(Trait == "Shoot_length") %>% 
+  ggplot(aes(History, Value)) +
+  geom_jitter(aes(shape = paste(Study, Inoculum, sep = " / "), color = Soil),
+              alpha = 0.6,
+              size = 2) +
+  geom_text(data = filter(by.trait.letters.nodav, Trait == "Shoot_length"), 
+            aes(x = History, y = Max + 2, label = Letter),
+            size = 7) +
+  ylab("Height (cm)") +
+  scale_color_manual(values = soil.pal.nodav) +
+  scale_shape_manual(values = c(2,17,1,16), name = "Study / Inoculum") +
+  facet_grid(. ~ Inoculum, scales = "free") +
+  theme_minimal() +
+  theme(text = element_text(size = 20))
+```
+
+Now let's run the analyses for each expreiment independently.
+```{r}
+by.study.trait.nodav <- pheno.nodav%>% 
+  group_by(Study,Trait) %>% 
+  nest
+
+by.study.trait.nodav <- by.study.trait.nodav %>% 
+  mutate(fit = map(data, run_lme_st),
+         tukey = map(fit, run_tukey),
+         letters = map(tukey, get_letters),
+         contrasts = map(fit, run_contrasts))
+
+by.study.trait.letters.nodav <- pheno.nodav%>% 
+  group_by(Study,History, Trait, Treatment, His.Trt, Inoculum) %>% 
+  summarise(Max = max(Value, na.rm = T)) %>% 
+  ungroup() %>%
+  inner_join(unnest(by.study.trait.nodav, letters))
+
+pheno.nodav %>%
+  ggplot(aes(History, Value)) +
+  geom_jitter(aes(shape = paste(Study, Inoculum, sep = " / "), color = Soil),
+              alpha = 0.6,
+              size = 2) +
+  geom_text(data = by.study.trait.letters.nodav, 
+            aes(x = History, y = Max, label = Letter),
+            size = 7) +
+  scale_color_manual(values = soil.pal.nodav) +
+  scale_shape_manual(values = c(2,17,1,16), name = "Study / Inoculum") +
+  facet_grid(Study + Trait ~ Inoculum, scales = "free") +
+  theme_minimal() +
+  theme(text = element_text(size = 20))
+
+```
+
+
+When the models are fit within each study, the contrast between conditioned inoculated vs naive mock yields and andjusted p.value greater than 0.05 for the second experiment. I would argue that this contrast is not relevant and we should only focus in the following contrasts:
+"Naive.Ino - Conditioned.Ino = 0",
+"Naive.NC - Conditioned.NC = 0",
+"Naive.NC - Naive.Ino = 0",
+"Conditioned.NC - Conditioned.Ino = 0"
+
+Here's what it looks like
+```{r}
+by.study.trait.nodav %>% 
+  unnest(contrasts) %>% 
+  filter(p.value < 0.05) %>% 
+  ggplot(aes(lhs, paste(Study, Trait), fill = estimate > 0)) +
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        text = element_text(size = 15))
+```
+This solves the issue for the  shoot fresh and dry weight. The root dry weight data is very messy as it was very difficult to collect whole roots for each plant. I suggest removing it.  
+
+Now let's take a look at the models applied to all the data (Davis included)
+This chunk looks at the models in which the data from both experiments is included.
+```{r}
+by.trait <- pheno.all %>% 
+  filter(Trait == "Shoot_fresh_weight" | Trait == "Shoot_length") %>% 
+  group_by(Trait) %>% 
+  nest
+
+by.trait <- by.trait %>% 
+  mutate(fit = map(data, run_lme),
+         tukey = map(fit, run_tukey),
+         letters = map(tukey, get_letters))
+
+by.trait.letters <- pheno.all %>% 
+  group_by(History, Trait, Treatment, His.Trt, Inoculum) %>% 
+  summarise(Max = max(Value, na.rm = T)) %>% 
+  ungroup() %>%
+  inner_join(unnest(by.trait, letters))
+
+pheno.all%>%
+  filter(Trait == "Shoot_fresh_weight") %>% 
+  ggplot(aes(History, Value)) +
+  geom_jitter(aes(shape = paste(Study, Inoculum, sep = " / "), color = Soil),
+              alpha = 0.6,
+              size = 2) +
+  geom_text(data = filter(by.trait.letters, Trait == "Shoot_fresh_weight"), 
+            aes(x = History, y = Max + .1, label = Letter),
+            size = 7) +
+  ylab("Shoot Fresh Weight (g)") +
+  scale_color_manual(values = soil.pal) +
+  scale_shape_manual(values = c(2,17,1,16), name = "Study / Inoculum") +
+  facet_grid(. ~ Inoculum, scales = "free") +
+  theme_minimal() +
+  theme(text = element_text(size = 20))
+
+pheno.all%>%
+  filter(Trait == "Shoot_length") %>% 
+  ggplot(aes(History, Value)) +
+  geom_jitter(aes(shape = paste(Study, Inoculum, sep = " / "), color = Soil),
+              alpha = 0.6,
+              size = 2) +
+  geom_text(data = filter(by.trait.letters, Trait == "Shoot_length"), 
+            aes(x = History, y = Max + 2, label = Letter),
+            size = 7) +
+  ylab("Height (cm)") +
+  scale_color_manual(values = soil.pal) +
+  scale_shape_manual(values = c(2,17,1,16), name = "Study / Inoculum") +
+  facet_grid(. ~ Inoculum, scales = "free") +
+  theme_minimal() +
+  theme(text = element_text(size = 20))
+
+```
+
+Now let's run the analyses for each experiment independently.
+```{r}
+by.study.trait <- pheno.all%>% 
+  group_by(Study,Trait) %>% 
+  nest
+
+by.study.trait <- by.study.trait %>% 
+  mutate(fit = map(data, run_lme_st),
+         tukey = map(fit, run_tukey),
+         letters = map(tukey, get_letters))
+
+by.study.trait.letters <- pheno.all%>% 
+  group_by(Study,History, Trait, Treatment, His.Trt, Inoculum) %>% 
+  summarise(Max = max(Value, na.rm = T)) %>% 
+  ungroup() %>%
+  inner_join(unnest(by.study.trait, letters))
+
+pheno.all %>%
+  ggplot(aes(History, Value)) +
+  geom_jitter(aes(shape = paste(Study, Inoculum, sep = " / "), color = Soil),
+              alpha = 0.6,
+              size = 2) +
+  geom_text(data = by.study.trait.letters, 
+            aes(x = History, y = Max, label = Letter),
+            size = 7) +
+  scale_color_manual(values = soil.pal) +
+  scale_shape_manual(values = c(2,17,1,16), name = "Study / Inoculum") +
+  facet_grid(Study + Trait ~ Inoculum, scales = "free") +
+  theme_minimal() +
+  theme(text = element_text(size = 20))
+```

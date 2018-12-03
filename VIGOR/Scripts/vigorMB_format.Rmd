@@ -1,0 +1,81 @@
+---
+title: "vigorMB_format"
+output: html_notebook
+---
+
+This script formats the otu tables and mapping files for further analyses
+
+```{r}
+source("../../General/rmb_functions.R")
+library(tidyverse)
+soil.pal <- c("#92324B","#9e66a7",'#ee5768', '#fdc248', '#1ca04f','#27afb9')
+otu.master <- readRDS("../Data/vigor_data.rds")
+```
+
+
+
+Filter the data to only include the second phenotype experiment. I excluded Davis as I am not sure how we should incorporate its particular agriculutral history into the paper. Just comment the fourht line to include Davis in the analysis.  I also excluded the positive controls, ie the plants grown in the actual soil used to generate the soil suspension spiked into the turface, because the profiles are too different to the turface-grown palnts. 
+
+```{r}
+otu.filt <- filter(otu.master, study == "Seedling Vigor 2" | study == "Seedling Vigor 1") %>% 
+  filter(Compartment == "Endosphere") %>%
+  filter(study == "Seedling Vigor 2" & SampleType != "PC" & !is.na(Replicate) & Replicate != "Redo" |
+         study == "Seedling Vigor 1" & Status != "Pre") %>% 
+  mutate(
+    Inoculum = case_when(
+      SampleType == "Ino" | Status == "Live Inoculum" ~ "SoilMB",
+      SampleType == "NC" | Status == "Autoclaved Inoculum" ~ "Mock"),
+    Soil = fct_recode(Soil, SacN = "SacNacN"),
+    study = fct_recode(study, Expt1 = "Seedling Vigor 1", Expt2 = "Seedling Vigor 2")
+    ) %>% 
+  rename("Study" = "study",
+         "Treatment" = "SampleType")
+```
+
+Generate a mapping file for the filtered data that also includes the phenotype values for the sequenced samples
+```{r}
+map <- otu.filt %>% 
+  group_by(SampleID, Study, Compartment, Inoculum, Soil, Treatment) %>% 
+  dplyr::count() %>% 
+  select(-n) %>% 
+  ungroup() %>% 
+  mutate(History = case_when(
+    Soil == "ArbA" | Soil == "BiggsA" ~ "Conditioned",
+    Soil == "ArbN" | Soil == "BiggsN" | Soil == "SacN" ~ "Naive",
+    Soil == "Davis" ~ "X"),
+    His.Trt = interaction(History, Treatment),
+    Soil.Trt = interaction(Soil, Treatment),
+    Soil2 = fct_recode(Soil, 
+                      "Arbuckle Conditioned" = "ArbA",
+                      "Arbuckle Naive" = "ArbN",
+                      "Biggs Conditioned" = "BiggsA",
+                      "Biggs Naive" = "BiggsN",
+                      "Davis" = "Davis",
+                      "Sacramento Naive" = "SacN"))
+
+#Check that the number of replicates make sense
+map %>% 
+  ggplot(aes(Soil, fill = Soil2)) +
+  geom_bar() +
+  facet_wrap(~ Study + Inoculum) +
+  scale_fill_manual(values = soil.pal)
+```
+
+The BiggsA Mock sample missing had low sequencing depth so I am guessing Joe excluded it before generating the RDS fie.
+
+```{r}
+otu <- otu.filt %>% 
+  select(variable, SampleID, value) %>% 
+  spread(key = SampleID, value = value) %>% 
+  as.data.frame(.)
+
+row.names(otu) <- otu$variable
+otu <- otu[,-1]
+otu <- otu[rowSums(otu > 0) > 0,] 
+```
+
+```{r}
+saveRDS(otu, "../Data/formatted_otu_table.RDS")
+saveRDS(map, "../Data/formatted_map.RDS")
+```
+
