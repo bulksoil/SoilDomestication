@@ -1,0 +1,100 @@
+---
+title: "Pheno models"
+output: html_notebook
+---
+
+This script runs lme models to test if the soil history affects diverse plant traits
+
+```{r}
+library(tidyverse)
+library(lme4)
+pheno.all <- readRDS("../Data/pheno_all.RDS")
+
+soil.pal <- c("#08519C", "#54278F", "#9ECAE1", "#9E9AC8", "gold", "#DADAEB")
+soil.pal.nodav <-  c("#08519C", "#54278F", "#9ECAE1", "#9E9AC8", "#DADAEB")
+```
+
+Now let's run the analyses for each experiment independently.
+```{r}
+
+pheno.all %>%
+  filter(Study == "Expt2") %>% 
+  filter(Trait == "Shoot_length") %>% 
+  mutate(History = gsub("X", "Intermediate", History)) %>% 
+  mutate(History = fct_relevel(History, "Conditioned", "Naive", "Intermediate")) %>% 
+  ggplot(aes(History, Value)) +
+  geom_jitter(aes(shape = paste(Study, Inoculum, sep = " / "), color = Soil),
+              alpha = 0.6,
+              size = 2) +
+  scale_color_manual(values = soil.pal) +
+  scale_shape_manual(values = c(1,16), name = "Study / Inoculum") +
+  labs(x = "", y = "Shoot Fresh Weight (g)")+
+  facet_wrap(~ Study + Inoculum, scales = "free", nrow = 1) +
+  theme_minimal() +
+  theme(text = element_text(size = 12), axis.text.x = element_text(angle = 30, hjust = 1))
+
+pheno.all %>%
+  filter(Study == "Expt2") %>% 
+  filter(Trait != "Root_dry_weight" & Trait != "Shoot_length") %>% 
+  mutate(History = gsub("X", "Intermediate", History)) %>% 
+  mutate(History = fct_relevel(History, "Conditioned", "Naive", "Intermediate")) %>% 
+  ggplot(aes(History, Value)) +
+  geom_jitter(aes(shape = paste(Study, Inoculum, sep = " / "), color = Soil),
+              alpha = 0.6,
+              size = 2, width = 0.2) +
+  scale_color_manual(values = soil.pal) +
+  scale_shape_manual(values = c(1,16), name = "Study / Inoculum") +
+  facet_wrap(~ Trait + Inoculum, scales = "free", nrow = 1) +
+  labs(y = "Mass (g)", x = "") +
+  theme_minimal() +
+  theme(text = element_text(size = 12), axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+```{r}
+exp2_height <- pheno.all %>%
+  filter(Study == "Expt1") %>% 
+  filter(Trait == "Shoot_length") %>% 
+  #mutate(History = gsub("X", "Intermediate", History)) %>% 
+  #mutate(History = fct_relevel(History, "Conditioned", "Naive", "Intermediate")) %>% 
+  ggplot(aes(History, Value)) +
+  geom_jitter(aes(shape = paste(Study, Inoculum, sep = " / "), color = Soil),
+              alpha = 0.6,
+              size = 2) +
+  scale_color_manual(values = soil.pal) +
+  scale_shape_manual(values = c(1,16), name = "Study / Inoculum") +
+  labs(x = "", y = "Shoot length (cm)")+
+  facet_wrap(~ Inoculum, nrow = 1) +
+  theme_minimal() +
+  theme(text = element_text(size = 12), axis.text.x = element_text(angle = 30, hjust = 1), legend.position = "none")
+
+exp2_weight <- pheno.all %>%
+  filter(Study == "Expt1") %>% 
+  filter(Trait == "Shoot_fresh_weight") %>% 
+  #mutate(History = gsub("X", "Intermediate", History)) %>% 
+  #mutate(History = fct_relevel(History, "Conditioned", "Naive", "Intermediate")) %>% 
+  ggplot(aes(History, Value)) +
+  geom_jitter(aes(shape = paste(Study, Inoculum, sep = " / "), color = Soil),
+              alpha = 0.6,
+              size = 2) +
+  scale_color_manual(values = soil.pal) +
+  scale_shape_manual(values = c(1,16), name = "Study / Inoculum") +
+  labs(x = "", y = "Shoot Fresh Weight (g)")+
+  facet_wrap(~ Inoculum, nrow = 1) +
+  theme_minimal() +
+  theme(text = element_text(size = 12), axis.text.x = element_text(angle = 30, hjust = 1))
+
+cowplot::plot_grid(exp2_height, exp2_weight, rel_widths = c(0.6, 1))
+```
+
+```{r}
+pheno.all %>% 
+  mutate(History = gsub("X", "Intermediate", History)) %>% 
+  group_by(Trait, Study, Treatment) %>% 
+  nest() %>% 
+  mutate(lmm = map(data, ~lmer(Value ~ History + (1|Soil/Tray), data = .))) %>% 
+  mutate(tuk = map(lmm, ~multcomp::glht(., linfct = multcomp::mcp(History = "Tukey")) %>% summary())) %>% 
+  unnest(map(tuk, ~tidy(.))) %>% 
+  mutate(p.adjusted = p.adjust(p.value, "BH")) %>% 
+  write_tsv("~/RMB/SoilDomestication/VIGOR/Tables/pheno_models.tsv")
+```
+

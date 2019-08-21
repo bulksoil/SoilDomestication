@@ -1,0 +1,524 @@
+---
+title: "Soil Domestication"
+output: html_notebook
+author: "Joe Edwards"
+---
+## Introductions
+Here in this experiment, we have grown rice plants in  soils from rice fields and from locations that are adjacent to rice fields, but are not growing crops. The goal was to see if there are consistent differences between the microbiomes that rice plants assemble from these soils.
+
+## Load in the libraries
+Note that this analysis relies on the tidyMB package. This can be found on my github profile.
+```{r}
+library(vegan)
+library(tidyverse)
+library(broom)
+library(biobroom)
+library(tidyMB)
+library(DESeq2)
+```
+
+## Load in the data
+The portion that is commented out was when I was originally loading in the data as a subset of a much larger dataset. The wExp object was too big for me to post on github, so I trimmed it down. Please note that if you are running this analysis on your computer, you will need to change the PATHs to reflect where you have clones this github repo to.
+```{r}
+## Do Not Run
+#wExp <- read_rds("~/Google Drive/RMB/Analyses/WEEDS/Manuscript/wExp.rds")
+#wExp %>% 
+#  filter(Experiment == "Mix" | Experiment == "Transplant") %>% 
+#  ungroup() %>% 
+#  group_by(variable) %>% 
+#  filter(sum(value > 0) / n() > 0.05) %>% 
+#  saveRDS("~/RMB/SoilDomestication/Data/dom_data.rds")
+
+dExp <- readRDS("~/RMB/SoilDomestication/Data/soil_domestication_data.rds")
+tax <- readRDS("~/RMB/SoilDomestication/Data/gg_otus_tax.rds")
+
+soil.pal <- c("#08519C", "#54278F", "#9ECAE1", "#9E9AC8", "gold", "#DADAEB")
+```
+
+## Convert counts to variance stabilized values
+```{r}
+dmap <- dExp %>% 
+  dplyr::select(variable, Compartment, SampleID, Site, From, Experiment, value) %>% 
+  grab_metadata(., samples = "SampleID", otus = "variable")
+
+dExp_vsd <- dExp %>% 
+  dplyr::select(variable, SampleID, value, Site, From, Compartment, Experiment) %>% 
+  mutate(SoilType = paste(Site, From, sep = "x")) %>% 
+  #group_by(variable) %>% filter(sum(value > 0) / n() > 0.05) %>% 
+  group_by(1) %>% nest() %>% 
+  mutate(dds = map(data, ~tidyDGEL(., method = "DESeq2", samples = "SampleID", formula = "~ SoilType + Compartment"))) %>% 
+  mutate(vsd = map(dds, ~assay(varianceStabilizingTransformation(., blind = T))))
+
+vsd_table <- dExp_vsd$vsd[[1]]
+
+dExp_vsd <- inner_join(dExp_vsd$vsd[[1]] %>% 
+                         as.data.frame() %>% 
+                         rownames_to_column("variable") %>% 
+                         gather("SampleID", "vsd", -variable), dmap, by = "SampleID")
+
+write_rds(dExp_vsd, path = "~/RMB/SoilDomestication/Data/dExp_vsd.rds")
+dExp_vsd <- read_rds("~/RMB/SoilDomestication/Data/dExp_vsd.rds")
+```
+
+
+## Betadiversity
+First things first. What is the underlying structure of the data?
+```{r}
+dPC <- tidy_pcoa(dExp_vsd , dist = "bray", value = "vsd", keep_loadings = F)
+
+dPC_plot <- dPC$axes %>% 
+  ggplot(aes(MDS1, MDS2, color = paste(Site, From, ""), shape = Compartment)) +
+  geom_point(size = 3, alpha = 0.9, stroke = 1) +
+  scale_color_manual(values = soil.pal) +
+  labs(x = paste("PCo1 (", round(dPC$eigen_vals[1] * 100, 2), "%)", sep = ""), y = paste("PCo2 (", round(dPC$eigen_vals[2] * 100, 2), "%)", sep = "")) +
+  scale_shape_manual(values = c(1, 18, 16)) +
+  #lims(x = c(-1.15, 1.45), y = c(-1.5, 1.1)) +
+  theme(panel.background = element_rect(fill = "white"),
+        panel.border = element_rect(fill = NA),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank())
+dPC_plot
+```
+### With Unifrac
+```{r}
+library(ape)
+library(GUniFrac)
+
+# convert negative numbers to zeros
+vsd_table[vsd_table < 0] <- 0
+vsd_table <- t(vsd_table)
+
+# Load in tree
+tree <- read.tree("~/RMB/Reference/97_otus.tree")
+
+## Subset tree to only have otus from vsd table
+good_tree <- keep.tip(tree, colnames(vsd_table))
+
+## One edge length is NaN, throwing off the calculations below. So impute it by taking the average
+good_tree$edge.length[is.na(good_tree$edge.length)] <- mean(good_tree$edge.length, na.rm = T)
+
+## Calculate unifrac
+unifracs <- GUniFrac(vsd_table, good_tree, alpha=c(0, 0.5, 1))$unifracs
+
+## Calculate pcoa for each dist metric
+wuf_pc <- capscale(unifracs[,,"d_1"] ~ 1)
+uuf_pc <- capscale(unifracs[,,"d_UW"] ~ 1)
+
+uuf_plot <- uuf_pc$CA$u %>% 
+  as.data.frame() %>% 
+  rownames_to_column("SampleID") %>% 
+  inner_join(dmap) %>% 
+  ggplot(aes(MDS1, MDS2, color = paste(Site, From, ""), shape = Compartment)) +
+  geom_point(size = 3, alpha = 0.9) +
+  #stat_ellipse(aes(group = Compartment), color = "black") +
+  scale_color_manual(values = soil.pal) +
+  scale_shape_manual(values = c(1, 18, 16)) +
+  labs(x = paste("PCo1 (", round(uuf_pc$CA$eig[1]/sum(uuf_pc$CA$eig) * 100, 2), "%)", sep = ""), 
+       y = paste("PCo2 (", round(uuf_pc$CA$eig[2]/sum(uuf_pc$CA$eig) * 100, 2), "%)", sep = "")) +
+  theme(text = element_text(size = 12),
+        panel.background = element_rect(fill = "white"),
+        panel.border = element_rect(fill = NA),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank(),
+        legend.position = "none")
+
+wuf_plot <- wuf_pc$CA$u %>% 
+  as.data.frame() %>% 
+  rownames_to_column("SampleID") %>% 
+  inner_join(dmap) %>% 
+  ggplot(aes(MDS1, MDS2, color = paste(Site, From, ""), shape = Compartment)) +
+  geom_point(size = 3, alpha = 0.9) +
+  #stat_ellipse(aes(group = Compartment), color = "black") +
+  scale_color_manual(values = soil.pal) +
+  scale_shape_manual(values = c(1, 18, 16)) +
+  labs(x = paste("PCo1 (", round(wuf_pc$CA$eig[1]/sum(wuf_pc$CA$eig) * 100, 2), "%)", sep = ""), 
+       y = paste("PCo2 (", round(wuf_pc$CA$eig[2]/sum(wuf_pc$CA$eig) * 100, 2), "%)", sep = "")) +
+  theme(text = element_text(size = 12),
+        panel.background = element_rect(fill = "white"),
+        panel.border = element_rect(fill = NA),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank(),
+        legend.position = "none")
+
+cowplot::plot_grid(wuf_plot, uuf_plot)
+```
+
+## Performing permanova on the data using Bray-Curtis dissimilarities
+```{r}
+dExp_vsd %>% 
+  long_adonis(., value = "vsd", formula = "Compartment * From + Experiment") %>% tidy(.)
+
+dExp_vsd %>% 
+  mutate(Compartment = fct_relevel(factor(Compartment), "Bulk Soil", "Rhizosphere", "Endosphere")) %>% 
+  group_by(Compartment) %>% 
+  nest() %>% 
+  mutate(adon = map(data, ~long_adonis(., value = "vsd", formula = "From + Experiment"))) %>% 
+  unnest(map(adon, ~tidy(.)))
+```
+
+### Permanova using weighted and unweighted unifrac
+```{r}
+adonis(as.dist(unifracs[,,"d_UW"]) ~ Compartment * From + Experiment, data = dmap)$aov.tab %>% tidy() %>% View()
+adonis(as.dist(unifracs[,,"d_1"]) ~ Compartment * From + Experiment, data = dmap)$aov.tab %>% tidy() %>% View()
+```
+
+## Do unicultivated soils yield microbiomes with more variablity than domesticated soils?
+Let's compare the mean dispersion around the  centroid for every compartment and soil type. One could imagine that if rice is "domesticating" a soil, then the rice soils would have less variability than the wild soils because the rice soil is under a similar set of conditions while the wild soils might face more dissimilar conditions.
+
+
+```{r}
+dBetaDisp <- dExp_vsd %>% 
+  ungroup() %>% 
+  mutate(group = paste(From, Compartment, sep = "_")) %>% 
+  tidyMB::tidy_betadisper(., value = "vsd", group = "group")
+
+data.frame(group_var = dBetaDisp$group, distance = dBetaDisp$distances) %>% 
+  separate(group_var, into = c("Type", "Compartment"), sep = "_") %>% 
+  mutate(Compartment  = fct_relevel(factor(Compartment), "Bulk Soil", "Rhizosphere", "Endosphere")) %>% 
+  ggplot(., aes(x = Compartment, y = distance, fill = Type)) +
+  geom_boxplot(alpha = 0.5) +
+  theme_minimal() +
+  labs(x = "", y = "Distance to centroid") +
+  scale_fill_manual(values = c("#3771c8", "#9F58C2")) +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1), text = element_text(size = 12)) 
+
+dBetaDisp$distances %>% as.data.frame() %>% 
+  rownames_to_column("SampleID") %>% 
+  dplyr::rename(betadisp = !!names(.[2])) %>% 
+  inner_join(dmap, by = "SampleID") %>% 
+  nest() %>% 
+  mutate(mod = map(data, ~aov(betadisp ~ Compartment * From, .))) %>% 
+  mutate(tuk = map(mod, ~TukeyHSD(.))) %>% 
+  unnest(map(tuk, ~tidy(.))) 
+```
+## Comparing rhizosphere to bulk soil distances
+Remember that result where the rice rhizosphere is significantly more similar to the bulk soil microbiome than the rhizosphere microbiomes from the native plants? One of the hypotheses that came from that was that rice may be "domesticating" the soil microbiome. If you go to rice field, you will quickly realize that those plants are growing so closely together that, at some point in the season,  all of the roots will overlap and the top layer of soil is only composed of rhizosphere. We can test this hypothesis by growing rice plants in soil from rice fields and soil from uncultivated sites. In order to support this hypothesis that rice is "domesticating" field soil, we need to show a few things. One is that the distance between rhizospehre and bulk soil is greater in the "wild" soils. The other is that the rhizospheres of rice plants growing in wild and domesticated soils are mmore similar than the bulk soils.
+```{r}
+d_dist <- dExp %>%
+  mutate(logRA = log2(RA * 1000 + 1)) %>% 
+  dplyr::select(Compartment, From, Site, SampleID, Experiment, logRA) %>% 
+  long_distance(., value = "logRA", dist = "bray")
+
+d_dist <- dExp_vsd %>%
+  long_distance(., value = "vsd", dist = "bray")
+
+rs_vs_bs <- d_dist %>% 
+  filter(Compartment.x%in%c("Rhizosphere", "Bulk Soil")) %>% 
+  filter(Compartment.y%in%c("Rhizosphere", "Bulk Soil")) %>% 
+  filter(Compartment.x != Compartment.y) %>% 
+  filter(From.x == From.y) %>% 
+  filter(Experiment.x == Experiment.y) %>% 
+  mutate(From = ifelse(From.x == "A", "Agricultural", "Non-agricultural"))
+
+rs_vs_bs_plot <- rs_vs_bs %>% 
+  ggplot(aes(From, value, fill = From)) +
+  geom_jitter(width = 0.1, height = 0, alpha = 0.5) +
+  geom_boxplot(alpha = 0.3, width = 0.5) +
+  #geom_violin() +
+  scale_fill_manual(values = c("#3771c8", "grey80")) +
+  scale_shape_manual(values = c(1,4)) +
+  theme_minimal() +
+  labs(x = "", y = "Bray Dissimilarity") +
+  theme(text = element_text(size =12), legend.position = "none", axis.text.x = element_text(angle = 30, hjust = 1))
+
+rs_vs_bs_plot
+```
+
+The above plot appears to support my suspicion that rice plants growing in agricultural soil host a rhizosphere microbiome that is more similar to their corresponding bulk soils. Let's do some statistics.
+```{r}
+tidy(lm(value ~ From.x, data = rs_vs_bs))
+
+rs_vs_bs %>% 
+  group_by(Experiment.x) %>% 
+  nest() %>% 
+  mutate(mod = map(data, ~lm(value ~ From.x, .))) %>% 
+  unnest(map(mod, ~tidy(.)))
+```
+
+Cool Cool. Looks like this trend is significant. Let's compare the rhizospheres to see if they are more similar.
+
+```{r}
+same_comps <- d_dist %>% 
+  filter(Compartment.x%in%c("Rhizosphere", "Bulk Soil")) %>% 
+  filter(Compartment.y%in%c("Rhizosphere", "Bulk Soil")) %>% 
+  filter(Compartment.x == Compartment.y) %>% 
+  filter(Experiment.x == Experiment.y) %>% 
+  mutate(type = ifelse(From.y == From.x, "aSelf", "bOut")) 
+
+same_comps_plot <- same_comps %>% 
+  ggplot(aes(paste(type, Compartment.x), value)) +
+  geom_jitter(width = 0.1, alpha = 0.7) +
+  geom_boxplot(alpha = 0, width = 0.5) +
+  #facet_wrap(~type, scales = "free") +
+  scale_shape_manual(values = c(1,4)) +
+  theme_minimal() +
+ # lims(y = c(0.12, 0.95)) +
+  labs(x = "", y = "Bray Dissimilarity") +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1), text = element_text(size = 12))
+
+same_comps_plot + coord_flip()
+```
+
+```{r}
+diff_comps <- d_dist %>% 
+  filter(Compartment.x%in%c("Rhizosphere", "Bulk Soil")) %>% 
+  filter(Compartment.y%in%c("Rhizosphere", "Bulk Soil")) %>% 
+  #filter(Compartment.x != Compartment.y) %>% 
+  filter(Experiment.x == Experiment.y) %>% 
+  filter(From.x != From.y) %>% 
+  mutate(type1 = paste(From.x, Compartment.x),
+         type2 = paste(From.y, Compartment.y)) %>% 
+  mutate(type1_1 = ifelse(type1 > type2, type1, type2),
+         type2_1 = ifelse(type1 < type2, type1, type2))
+
+TukeyHSD(aov(value ~ paste(type1_1, type2_1), diff_comps))
+
+diff_comps %>% 
+  ggplot(aes(paste(type1_1, "vs", type2_1), y = value)) +
+  geom_boxplot() +
+  geom_jitter(width = 0.1)
+```
+
+
+```{r}
+same_comps %>% 
+  group_by(type) %>% 
+  nest() %>% 
+  mutate(mod = map(data, ~lm(value ~ Compartment.x, .))) %>% 
+  unnest(map(mod, ~tidy(.)))
+```
+
+
+
+## Differentially abundant OTUs
+We see relatively large differences between "domesticated" and "wild" soils. Let's find the OTUs that explain these differences.
+```{r}
+## I'm going to run this, and then save the results to I don't have to do it again.
+
+ dom_deseq <- dExp %>% 
+  select(Compartment, From, value, SampleID, variable, Experiment) %>% 
+   group_by(variable) %>% 
+   filter(sum(value > 0) / n() > 0.1) %>% 
+   mutate(group = paste(Compartment, From, sep = ".")) %>% 
+   group_by(group_var = "DESeq2", Experiment) %>% 
+   nest() %>% 
+   mutate(DGEL = map(data, ~suppressMessages(tidyDGEL(., value = "value", group_column = "group", method = "DESeq2", formula = "~ group")))) %>% 
+   mutate(dds = map(DGEL, ~suppressMessages(DESeq(.)))) %>% 
+   mutate(BulkSoil = map(dds, ~lfcShrink(., contrast = c("group", "Bulk Soil.A", "Bulk Soil.N")))) %>% 
+   mutate(Rhizosphere = map(dds, ~lfcShrink(., contrast = c("group", "Rhizosphere.A", "Rhizosphere.N")))) %>% 
+   mutate(Endosphere = map(dds, ~lfcShrink(., contrast = c("group", "Endosphere.A", "Endosphere.N")))) %>% 
+   dplyr::select(BulkSoil, Rhizosphere, Endosphere, Experiment) %>% 
+   gather(key = Compartment, value = results, -Experiment)
+
+ dom_deseq %>% 
+   ungroup() %>% 
+   write_rds(path = "~/RMB/SoilDomestication/Data/domestication_deseq.rds")
+
+dom_deseq <- readRDS("~/RMB/SoilDomestication/Data/domestication_deseq.rds")
+```
+
+
+```{r}
+dom_otus <- dom_deseq %>% 
+  unnest(map(results, ~tidy(.))) %>% 
+  group_by(Experiment, Compartment) %>% 
+  #group_by(Compartment) %>% 
+  mutate(direction = ifelse(estimate > 0, "A", "N")) %>% 
+  filter(p.adjusted <= 0.05) %>% ungroup() %>% 
+  dplyr::count(direction, Compartment, gene) %>% 
+  filter(n == 2) %>% 
+  dplyr::count(direction, gene, Compartment) %>% 
+  dplyr::rename(variable = gene)
+
+np_deseq <- read_rds("~/RMB/SoilDomestication/Data/native_plants_deseq.rds")
+
+## Gather the core rice enriched OTUs
+rice_otus <- np_deseq %>% 
+  unnest(map(results, ~tidy(.))) %>% 
+  separate(taxon, sep = "_", into = c("Taxon", "Compartment")) %>% 
+  mutate(direction = ifelse(estimate < 0, "NativePlant", "Rice")) %>% 
+  filter(p.adjusted <= 0.05) %>% 
+  dplyr::count(direction, Compartment, gene) %>% 
+  dplyr::add_count(direction, Compartment) %>% 
+  filter(n == 3) %>% 
+  mutate(Compartment = gsub("ES", "Endosphere", Compartment),
+         Compartment = gsub("RS", "Rhizosphere", Compartment)) %>% 
+  dplyr::rename(variable = gene) %>% 
+  filter(direction == "Rice")
+
+## Gather the core rice depleted OTUs
+weeds_otus <-  np_deseq %>% 
+  unnest(map(results, ~tidy(.))) %>% 
+  separate(taxon, sep = "_", into = c("Taxon", "Compartment")) %>% 
+  mutate(direction = ifelse(estimate < 0, "Weed", "Rice")) %>% 
+  filter(p.adjusted <= 0.05) %>% 
+  dplyr::count(direction, Compartment, gene) %>% 
+  dplyr::add_count(direction, Compartment) %>% 
+  filter(n == 3) %>% 
+  mutate(Compartment = gsub("ES", "Endosphere", Compartment),
+         Compartment = gsub("RS", "Rhizosphere", Compartment)) %>% 
+  dplyr::rename(variable = gene) %>% 
+  filter(direction == "Weed")
+
+nExp <- readRDS("~/RMB/SoilDomestication/Data/native_plants_data.rds") %>% 
+  mutate(cpm = round(value * (1000000 / depth))) 
+```
+
+### What is the overlap of rice enriched microbes with the domesticated microbes?
+```{r}
+nA <- length(unique(rice_otus$variable))
+nB <- length(unique(dom_otus %>% filter(direction == "A") %>% pull(variable)))
+nC <- length(union(nExp %>% group_by(variable) %>% filter(sum(value) > 0) %>% dplyr::count(variable) %>% pull(variable),
+          dExp %>% group_by(variable) %>% filter(sum(value) > 0) %>% dplyr::count(variable) %>% pull(variable)))
+nAB <- length(intersect(dom_otus %>% filter(direction == "A") %>% pull(variable), rice_otus$variable))
+
+probR <- phyper(nAB, nB, nC-nB, nA, lower.tail = F)
+```
+There are `r nA` rice enriched microbes (compared to the weeds) and `r nB` OTUs that are enriched at least in one compartment of the plants growing in domesticated soils. Between the rice vs. weeds dataset and the soil domestication dataset, there are `r nC` OTUs. There are `r nAB` OTUs shared between the rice enriched and domesticated microbes. What is the probability that we whitness and overlap of `r nAB` OTUs given these parameters? We can treat this like the trusty old "black and white balls in an urn" analogy. If we have an urn filled with `r nC`, and `r nB` of these balls are black and the rest are white, what is the probability that if we draw `r nA` balls from the urn that `r nAB` of the balls will be black? We can use the hypergeometric function to figure out. After doing this calculation, we find that the probability of having an overlap of `r nAB` between the datasets is `r probR`.
+
+
+We have this nice overlap. Let's show it in tree form.
+```{r}
+library(phyloseq)
+library(ggtree)
+## Load in the tree
+gg_tree <- readRDS("~/RMB/SoilDomestication/Data/gg_tree.rds")
+
+domMD <- data.frame(Compartment = c("aShared", rep(c("bBulkSoil", "cRhizosphere", "dEndosphere"), each = 2)),
+                      Type = c("aShared",rep(c("Domesticated", "Wild"), 3)),
+                      SampleID = paste("D", 0:6, sep = ""),
+                    row.names = paste("D", 0:6, sep = ""))
+
+## Make a dataframe to use for denoting treatments
+dT <- dom_otus %>% 
+  mutate(Type = ifelse(direction == "A", "Domesticated", "Wild")) %>% 
+  mutate(Compartment = gsub("BulkSoil", "bBulkSoil", Compartment),
+         Compartment = gsub("Rhizosphere", "cRhizosphere", Compartment),
+         Compartment = gsub("Endosphere", "dEndosphere", Compartment)) %>% 
+  bind_rows(rice_otus %>% filter(variable%in%intersect(dom_otus %>% filter(direction == "A") %>% pull(variable), rice_otus$variable)) %>% 
+              dplyr::count(variable) %>% 
+              mutate(Type = "aShared", Compartment = "aShared")) %>% 
+  mutate(value = 1) %>% 
+  inner_join(domMD, by = c("Compartment", "Type")) %>%
+  dplyr::select(SampleID, variable, value) %>% 
+  spread(SampleID, value, fill = 0) %>% 
+  as.data.frame()
+
+row.names(dT) <- dT$variable
+dT$variable <- NULL  
+
+
+dTax <- dom_otus %>% 
+  inner_join(tax, by = "variable") %>% 
+  spread(Compartment, direction) %>% 
+  mutate(Phylum2 = as.character(Phylum2)) %>% 
+  dplyr::rename(Domain = Kingdom) %>%  
+  as.data.frame()
+row.names(dTax) <- dTax$variable
+dTax <- dTax[match(row.names(dT), row.names(dTax)),]
+
+
+dom.physeq_sampleType <- phyloseq(otu_table(dT, taxa_are_rows = T), 
+                       sample_data(domMD),
+                       dTax,
+                       gg_tree)
+# Plot tree with metadata
+plot_tree(dom.physeq_sampleType, color = "Type", ladderize = "left", shape = "Compartment", justify = "left", size = "Type") +
+  scale_color_manual(values = c('black', "#3771c8", "grey80")) +
+  scale_shape_manual(values = c(1, 16, 15, 17)) +
+  scale_size_manual(values = c(1,2,2,2))
+
+# Plot tree with taxonomic information
+dom.physeq_Phy <- phyloseq(otu_table(data.frame(J1 = rep(1, nrow(dT)), row.names = row.names(dT)), taxa_are_rows = T), 
+                       tax_table(as.matrix(dTax)),
+                       gg_tree)
+
+```
+
+```{r}
+dom_phy_tree <- phy_tree(dom.physeq_Phy)
+dom_tax <- tax_table(dom.physeq_Phy) %>% as.data.frame() %>% 
+  mutate(Phylum3 = fct_lump(Phylum2, 15)) %>% 
+  mutate(Phylum3 = fct_relevel(Phylum3, "Alphaproteobacteria", "Betaproteobacteria", "Deltaproteobacteria", "Gammaproteobacteria"))
+
+shared_otus <- data.frame(variable = intersect(dom_otus %>% filter(direction == "A") %>% pull(variable), rice_otus$variable), Compartment  = "Shared", direction = "Shared")
+
+phy.colors <- colorRampPalette(c(RColorBrewer::brewer.pal(n = 11, "Set1")))
+
+tree.plot <- ggtree(dom_phy_tree, ladderize = F) %<+% dom_tax +
+  geom_tippoint(aes(color = Phylum3)) +
+  theme(legend.position = "left") +
+  geom_tiplab(aes(color = Phylum3), align = T, size = 0, alpha = 0.2) +
+  scale_color_manual(values = c(RColorBrewer::brewer.pal(6, "Greys")[-c(1,6)], RColorBrewer::brewer.pal(12, "Set3")[-9], "black"))
+
+tax_order <- data.frame(variable = as.character(dom_phy_tree$tip.label), 
+                        order = 1:length(dom_phy_tree$tip.label))
+
+
+otu_plot <- dom_otus %>% 
+  dplyr::select(-nn) %>% 
+  bind_rows(shared_otus) %>% 
+  inner_join(tax_order, by = "variable") %>% 
+  mutate(x = paste(direction, Compartment)) %>% 
+  mutate(x = fct_relevel(x, "Shared Shared", "A BulkSoil", "A Rhizosphere", "A Endosphere",
+                         "N BulkSoil", "N Rhizosphere", "N Endosphere")) %>% 
+  ggplot(aes(x = x, y = -order, color = direction, shape = Compartment)) +
+  geom_point(size = 2) +
+  scale_color_manual(values = c("#3771c8", "#9F58C2", "black")) +
+  scale_shape_manual(values = c(1, 18, 16, 20)) +
+  theme_void()
+
+cowplot::plot_grid(tree.plot, otu_plot, rel_widths = c(1.5, 0.5), align = "h")
+```
+
+
+Do we find some phyla belonging to the categories more than expected? That is, for instance, do we find that deltoproteobacteria are enriched more in domesticated soils than we would expect by random chance?
+```{r}
+enriched_phyla <- dom_otus %>% 
+  mutate(universe = nrow(.)) %>% 
+  inner_join(tax, by = "variable") %>% 
+  add_count(Phylum2) %>% dplyr::rename(phy_universe = n) %>% 
+  add_count(direction) %>% dplyr::rename(group_size = n) %>% 
+  dplyr::count(universe, phy_universe, group_size, direction, Phylum2) %>% 
+  mutate(phyp = phyper(n, group_size, universe - group_size, phy_universe, lower.tail = F)) %>% 
+  filter(n > 3) %>% filter(phyp <= 0.05) %>% arrange(direction, phyp)
+
+enriched_phyla %>% 
+  mutate(statistic = -log10(phyp + 6e-15)) %>% 
+  mutate(statistic2 = ifelse(direction == "A", statistic, -statistic)) %>% 
+  mutate(Phylum2 = fct_reorder(factor(Phylum2), statistic2)) %>% 
+  mutate(text_position = ifelse(statistic > 10, 5, statistic + 0.5)) %>% 
+  ggplot(aes(Phylum2, statistic, fill = direction, label = Phylum2)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(x = Phylum2, y = text_position), angle = 90, hjust = 0) +
+  scale_fill_manual(values = c("#3771c8", "#9F58C2")) +
+  theme_minimal() +
+  labs(x = "") +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+ enriched_order <- dom_otus %>% 
+  mutate(universe = nrow(.)) %>% 
+  inner_join(tax, by = "variable") %>% 
+  add_count(Order) %>% dplyr::rename(phy_universe = n) %>% 
+  add_count(direction) %>% dplyr::rename(group_size = n) %>% 
+  dplyr::count(universe, phy_universe, group_size, direction, Order) %>% 
+  mutate(phyp = phyper(n, group_size, universe - group_size, phy_universe, lower.tail = F)) %>% 
+  filter(n > 3) %>% filter(phyp <= 0.05) %>% arrange(direction, phyp)
+
+enriched_order %>% 
+  mutate(statistic = -log10(phyp + 6e-15)) %>% 
+  mutate(statistic2 = ifelse(direction == "A", statistic, -statistic)) %>% 
+  mutate(Order = fct_reorder(factor(Order), statistic2)) %>% 
+  mutate(text_position = ifelse(statistic > 10, 5, statistic + 0.5)) %>% 
+  ggplot(aes(Order, statistic, fill = direction, label = Order)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(x = Order, y = text_position), angle = 90, hjust = 0) +
+  scale_fill_manual(values = c("#3771c8", "grey80")) +
+  theme_minimal() +
+  labs(x = "") +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+```
+
+
+
+

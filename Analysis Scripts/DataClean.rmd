@@ -1,0 +1,76 @@
+---
+title: "Data Load and Clean"
+output: html_notebook
+---
+  
+```{r}
+library(tidyverse)
+```
+
+```{r}
+otu_table <- read_tsv("~/RMB/SoilDomestication/Data/domOtuTable.tsv.gz")
+tax <- readRDS("~/RMB/Reference/gg_otus_tax.rds")
+total_map <- read_tsv("~/RMB/SoilDomestication/Data/total_map.tsv")
+```
+
+```{r}
+d_data <- otu_table %>% 
+  gather(SampleID, value, -OTUID) %>% rename(variable = OTUID) %>% 
+  mutate(variable = factor(as.character(variable))) %>% 
+  inner_join(total_map, by = "SampleID") %>% 
+  inner_join(tax, by = "variable") %>% 
+  filter(Family != "mitochondria" & Class != "Chloroplast") %>% 
+  group_by(SampleID) %>% 
+  mutate(depth = sum(value)) %>% 
+  group_by(variable) %>% 
+  mutate(RA = value / depth, prevalence = sum(value > 0) / n())
+```
+
+```{r}
+d_data %>% 
+  ungroup() %>% 
+  dplyr::select(study, host_common_name, SampleID, depth) %>% 
+  distinct() %>% 
+  mutate(colorz = paste(host_common_name, study)) %>% 
+  ggplot(., aes(x = depth, fill = colorz)) +
+  geom_histogram() +
+  scale_x_log10() +
+  facet_wrap(~colorz)
+```
+
+```{r}
+d_data %>% 
+  filter(depth > 1000) %>% 
+  mutate(discard = ifelse(prevalence >= 0.01, "Keep", "Discard")) %>% 
+  group_by(variable, prevalence, discard) %>% 
+  summarise(mean_ab = mean(RA)) %>% 
+  ggplot(aes(x = mean_ab, y = prevalence, color = discard)) +
+  geom_point(alpha = 0.2) +
+  scale_color_manual(values = c("red", "black")) +
+  scale_x_log10() +
+  theme_minimal()
+```
+```{r}
+d_data %>% 
+  filter(depth > 1000) %>% 
+  mutate(discard = ifelse(prevalence >= 0.01, "Keep", "Discard")) %>% 
+  ungroup() %>% 
+  dplyr::select(variable, discard) %>% 
+  distinct() %>% 
+  group_by(discard) %>% 
+  summarise(n = n())
+```
+
+```{r}
+wExp <- d_data %>% 
+  filter(depth > 1000 & prevalence > 0.01) %>% 
+  mutate(Compartment2 = ifelse(is.na(Compartment), sample_type, Compartment)) %>% 
+  mutate(Compartment  = Compartment2) %>% 
+  select(-Kingdom, -Class, -Order, -Phylum, -Phylum2, -Family, -Genus, -Species, -Cultivar, -Compartment2, -sample_type, -Plant_ID, -collection_timestamp, -longitude, -latitude, -Age)
+wExp %>% 
+  ungroup() %>% 
+  write_rds("~/RMB/SoilDomestication/Data/wExp.rds", compress = "gz")
+```
+
+
+
