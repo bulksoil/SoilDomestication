@@ -4,19 +4,20 @@ output: html_notebook
 ---
 
 ```{r}
-source("~/RMB/SoilDomestication/VIGOR/General/rmb_functions.R")
+source("~/RMB/SoilDomestication/Analysis Scripts/SeedlingVigorScripts/rmb_functions.R")
 library(DESeq2)
 library(ggdendro)
 library(tidyverse)
 library(phyloseq)
 library(cowplot)
+library(vegan)
 
 soil.pal <- c("#92324B","#9e66a7",'#ee5768', '#fdc248', '#1ca04f','#27afb9')
 phy.pal <- c("black", RColorBrewer::brewer.pal(11, "Spectral")[c(9,2,11)], RColorBrewer::brewer.pal(6, "Greys")[-1])
 
-otu <- readRDS("~/RMB/SoilDomestication/VIGOR/Data/formatted_otu_table.RDS")
-map <- readRDS("~/RMB/SoilDomestication/VIGOR/Data/formatted_map.RDS")
-tax <- read_tax("~/RMB/SoilDomestication/VIGOR/General/gg_13_8_97_tax.tsv")
+otu <- readRDS("~/RMB/SoilDomestication/Analysis Scripts/SeedlingVigorScripts/formatted_otu_table.RDS")
+map <- readRDS("~/RMB/SoilDomestication/Analysis Scripts/SeedlingVigorScripts/formatted_map.RDS")
+tax <- read_tax("~/RMB/SoilDomestication/Analysis Scripts/SeedlingVigorScripts/gg_13_8_97_tax.tsv")
 ```
 
 Get the top phylum/classes and collapse the rest into the "other" category
